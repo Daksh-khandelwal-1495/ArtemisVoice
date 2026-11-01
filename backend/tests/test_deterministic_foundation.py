@@ -28,6 +28,11 @@ from artemisVoice.Evals.evaluation.self_validation import (
     load_seeded_suite,
 )
 from artemisVoice.Evals.patches.service import PatchService, PatchStatus
+from artemisVoice.Evals.providers.config import (
+    ProviderConfigurationError,
+    ProviderName,
+    ProviderSettings,
+)
 from artemisVoice.Evals.redteam.mutations import MutationOperator, RedTeamSearch
 from artemisVoice.Evals.storage.sqlite import SQLiteTraceStore
 from artemisVoice.Evals.tracing.contracts import Layer, RunTrace
@@ -102,6 +107,17 @@ def test_each_mock_layer_has_a_proven_counterfactual_arm(fault: str, interventio
     )
 
     assert diagnosis.verdict is Verdict.PROVEN
+
+
+def test_provider_configuration_keeps_mock_mode_offline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    settings = ProviderSettings.from_environment()
+    settings.validate()
+    assert settings.mode is ProviderName.MOCK
+
+    monkeypatch.setenv("ARTEMIS_PROVIDER_MODE", "live")
+    with pytest.raises(ProviderConfigurationError, match="not a supported provider"):
+        ProviderSettings.from_environment()
 
 
 def test_trace_rejects_missing_pipeline_layer() -> None:
