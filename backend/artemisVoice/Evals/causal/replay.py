@@ -112,24 +112,38 @@ class CounterfactualReplayEngine:
         )
 
     def diagnose_stt(self, source: RunTrace, *, turn_index: int, trials: int = 5) -> Diagnosis:
+        return self.diagnose(
+            source, turn_index=turn_index, intervention=Intervention.STT_ORACLE, trials=trials
+        )
+
+    def diagnose(
+        self,
+        source: RunTrace,
+        *,
+        turn_index: int,
+        intervention: Intervention,
+        trials: int = 5,
+    ) -> Diagnosis:
         if trials < 1:
             raise ValueError("trials must be positive")
+        if intervention is Intervention.CONTROL:
+            raise ValueError("a diagnosis requires a non-control intervention")
 
         control = self._run_arm(source, turn_index, Intervention.CONTROL, trials)
-        stt_oracle = self._run_arm(source, turn_index, Intervention.STT_ORACLE, trials)
-        effect_size = stt_oracle.pass_rate - control.pass_rate
+        intervention_arm = self._run_arm(source, turn_index, intervention, trials)
+        effect_size = intervention_arm.pass_rate - control.pass_rate
         p_value = fisher_exact_two_sided(
-            stt_oracle.pass_count,
-            stt_oracle.trials - stt_oracle.pass_count,
+            intervention_arm.pass_count,
+            intervention_arm.trials - intervention_arm.pass_count,
             control.pass_count,
             control.trials - control.pass_count,
         )
         return Diagnosis(
             source_run_id=source.id,
             turn_index=turn_index,
-            intervention=Intervention.STT_ORACLE,
+            intervention=intervention,
             control=control,
-            intervention_arm=stt_oracle,
+            intervention_arm=intervention_arm,
             effect_size=effect_size,
             fisher_exact_p_value=p_value,
             verdict=_verdict(control, effect_size, p_value),

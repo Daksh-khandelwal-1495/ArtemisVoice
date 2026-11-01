@@ -8,7 +8,11 @@ from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAge
 from artemisVoice.Evals.agents.protocol import VoiceAgentAdapter
 from artemisVoice.Evals.api.app import create_app
 from artemisVoice.Evals.causal.locator import CandidateReason, CandidateTurnLocator
-from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Verdict
+from artemisVoice.Evals.causal.replay import (
+    CounterfactualReplayEngine,
+    Intervention,
+    Verdict,
+)
 from artemisVoice.Evals.domain.models import Scenario
 from artemisVoice.Evals.evaluation.judges import (
     JudgeEvidenceError,
@@ -80,6 +84,24 @@ def test_mock_pipeline_seeds_each_non_stt_layer_fault(fault: str, expected_layer
     assert not trace.is_successful()
     layer = next(item for item in trace.turns[0].layers if item.layer is expected_layer)
     assert "P8Q2" in str(layer.output)
+
+
+@pytest.mark.parametrize(
+    ("fault", "intervention"),
+    [
+        ("forced_endpointing_code", Intervention.ENDPOINTING_ORACLE),
+        ("forced_llm_code", Intervention.LLM_ORACLE),
+        ("forced_tool_code", Intervention.TOOLS_ORACLE),
+        ("forced_tts_code", Intervention.TTS_ORACLE),
+    ],
+)
+def test_each_mock_layer_has_a_proven_counterfactual_arm(fault: str, intervention: Intervention) -> None:
+    scenario = load_scenario("healthy_confirmation.json").model_copy(update={fault: "P8Q2"})
+    diagnosis = CounterfactualReplayEngine().diagnose(
+        DeterministicConfirmationAgent().run(scenario), turn_index=0, intervention=intervention
+    )
+
+    assert diagnosis.verdict is Verdict.PROVEN
 
 
 def test_trace_rejects_missing_pipeline_layer() -> None:
