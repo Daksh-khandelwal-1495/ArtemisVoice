@@ -24,6 +24,7 @@ from artemisVoice.Evals.evaluation.self_validation import (
     load_seeded_suite,
 )
 from artemisVoice.Evals.patches.service import PatchService, PatchStatus
+from artemisVoice.Evals.redteam.mutations import MutationOperator, RedTeamSearch
 from artemisVoice.Evals.storage.sqlite import SQLiteTraceStore
 from artemisVoice.Evals.tracing.contracts import Layer, RunTrace
 from fastapi.testclient import TestClient
@@ -293,3 +294,13 @@ def test_judges_require_trace_backed_evidence_and_queue_human_review(tmp_path: P
 
     assert review.status_code == 201
     assert client.get("/reviews").json()[0]["id"] == review.json()["id"]
+
+
+def test_red_team_generates_four_caller_valid_mutations() -> None:
+    source = load_scenario("healthy_confirmation.json")
+    mutated = RedTeamSearch().generate(source, DeterministicConfirmationAgent())
+
+    assert {item.operator for item in mutated} == set(MutationOperator)
+    assert all(item.caller_valid for item in mutated)
+    assert all(item.scenario.parent_id == source.id for item in mutated)
+    assert all(item.scenario.mutation_history for item in mutated)
