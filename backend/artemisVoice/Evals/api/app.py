@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from uuid import UUID
 
@@ -218,4 +219,4 @@ def create_app(
     return app
 
 
-app = create_app()
+app = create_app(os.getenv("ARTEMIS_DATABASE_PATH", "artemis_voice.db"))

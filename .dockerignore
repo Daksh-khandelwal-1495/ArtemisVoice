@@ -1,0 +1,10 @@
+.git
+.env
+.pytest_cache
+.ruff_cache
+frontend
+data
+artemis_voice.db
+*.db
+__pycache__
+**/__pycache__
