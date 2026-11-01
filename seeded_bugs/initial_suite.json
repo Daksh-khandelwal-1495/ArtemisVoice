@@ -1,0 +1,68 @@
+{
+  "cases": [
+    {
+      "id": "tuning-stt-confusion",
+      "split": "tuning",
+      "expected_cause": "speech_to_text",
+      "scenario": {
+        "id": "stt-confusion-confirmation",
+        "caller_name": "Sam Rivera",
+        "confirmation_code": "B8Q2",
+        "expected_database_state": {
+          "customer_name": "Sam Rivera",
+          "confirmation_code": "B8Q2"
+        },
+        "seed": 12,
+        "forced_stt_confusion": "P8Q2"
+      }
+    },
+    {
+      "id": "blind-stt-confusion",
+      "split": "blind",
+      "expected_cause": "speech_to_text",
+      "scenario": {
+        "id": "stt-confusion-confirmation-heldout",
+        "caller_name": "Noor Patel",
+        "confirmation_code": "B8Q3",
+        "expected_database_state": {
+          "customer_name": "Noor Patel",
+          "confirmation_code": "B8Q3"
+        },
+        "seed": 13,
+        "forced_stt_confusion": "P8Q3"
+      }
+    },
+    {
+      "id": "blind-healthy",
+      "split": "blind",
+      "expected_cause": "not_the_agent",
+      "scenario": {
+        "id": "healthy-confirmation",
+        "caller_name": "Sam Rivera",
+        "confirmation_code": "B8Q2",
+        "expected_database_state": {
+          "customer_name": "Sam Rivera",
+          "confirmation_code": "B8Q2"
+        },
+        "seed": 11
+      }
+    },
+    {
+      "id": "blind-caller-invalid",
+      "split": "blind",
+      "expected_cause": "not_the_agent",
+      "scenario": {
+        "id": "caller-invalid-confirmation",
+        "caller_name": "Sam Rivera",
+        "confirmation_code": "B8Q2",
+        "expected_database_state": {
+          "customer_name": "Sam Rivera",
+          "confirmation_code": "B8Q2"
+        },
+        "seed": 14,
+        "forced_stt_confusion": "P8Q2",
+        "caller_valid": false
+      }
+    }
+  ]
+}

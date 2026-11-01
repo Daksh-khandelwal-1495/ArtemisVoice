@@ -1,0 +1,12 @@
+{
+  "id": "caller-invalid-confirmation",
+  "caller_name": "Sam Rivera",
+  "confirmation_code": "B8Q2",
+  "expected_database_state": {
+    "customer_name": "Sam Rivera",
+    "confirmation_code": "B8Q2"
+  },
+  "seed": 14,
+  "forced_stt_confusion": "P8Q2",
+  "caller_valid": false
+}

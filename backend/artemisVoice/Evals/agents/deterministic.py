@@ -115,7 +115,7 @@ class DeterministicConfirmationAgent:
             scenario_id=scenario.id,
             agent_config_hash=self.config_hash,
             seed=scenario.seed,
-            valid_caller_run=True,
+            valid_caller_run=scenario.caller_valid,
             expected_database_state=scenario.expected_database_state,
             final_database_state=after,
             turns=[turn],

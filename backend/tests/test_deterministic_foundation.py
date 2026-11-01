@@ -8,6 +8,12 @@ from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAge
 from artemisVoice.Evals.causal.locator import CandidateReason, CandidateTurnLocator
 from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Verdict
 from artemisVoice.Evals.domain.models import Scenario
+from artemisVoice.Evals.evaluation.self_validation import (
+    ExpectedCause,
+    SelfValidationRunner,
+    SuiteSplit,
+    load_seeded_suite,
+)
 from artemisVoice.Evals.patches.service import PatchService, PatchStatus
 from artemisVoice.Evals.storage.sqlite import SQLiteTraceStore
 from artemisVoice.Evals.tracing.contracts import Layer, RunTrace
@@ -168,3 +174,16 @@ def test_approved_patch_and_gate_result_are_persisted(tmp_path: Path) -> None:
 
     assert restored_patch == proposal
     assert restored_result == result
+
+
+def test_blind_seeded_suite_reports_attribution_and_false_blame_metrics() -> None:
+    suite = load_seeded_suite(Path("seeded_bugs/initial_suite.json"))
+    report = SelfValidationRunner().run(suite, split=SuiteSplit.BLIND)
+
+    assert report.metrics.attribution_accuracy == 1.0
+    assert report.metrics.false_blame_rate == 0.0
+    assert report.metrics.inconclusive_rate == 0.0
+    assert report.confusion_matrix == {
+        ExpectedCause.STT: {ExpectedCause.STT: 1},
+        ExpectedCause.NOT_THE_AGENT: {ExpectedCause.NOT_THE_AGENT: 2},
+    }

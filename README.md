@@ -22,6 +22,7 @@ The repository now has the Phase 0 foundation:
 - a control-vs-oracle-STT counterfactual replay with repeated-trial statistics;
 - candidate-turn ranking from transcript and final-state evidence;
 - a review-required STT patch and a failing/held-out/regression validation gate;
+- split-specific seeded-bug reports for attribution, false-blame, and inconclusive rates.
 - tests covering valid traces, the seeded failure, and a missing-artifact guard.
 
 See [the implementation plan](docs/IMPLEMENTATION_PLAN.md) for ordered milestones,
@@ -36,8 +37,10 @@ dependencies:
 python -m pip install -e ".[dev]"
 python -m pytest
 python -m artemisVoice.Evals.cli --scenario scenarios/healthy_confirmation.json
+python -m artemisVoice.Evals.cli --seeded-suite seeded_bugs/initial_suite.json --split blind
 ```
 
 The CLI writes a replayable run to SQLite and prints the structured result. The
-next milestone generalizes the first counterfactual arm to other pipeline layers
-and persists experiments and diagnoses as first-class records.
+seeded-suite command prints a split-specific confusion matrix and measured
+self-validation metrics. The next milestone generalizes the first
+counterfactual arm to other pipeline layers.

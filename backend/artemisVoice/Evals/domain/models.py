@@ -14,6 +14,7 @@ class Scenario(BaseModel):
     expected_database_state: dict[str, str]
     seed: int = Field(ge=0)
     forced_stt_confusion: str | None = None
+    caller_valid: bool = True
 
     def caller_text(self) -> str:
         return f"My name is {self.caller_name}. My confirmation code is {self.confirmation_code}."
