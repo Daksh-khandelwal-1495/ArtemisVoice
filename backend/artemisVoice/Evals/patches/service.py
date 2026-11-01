@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
 from artemisVoice.Evals.causal.replay import Diagnosis, Intervention, Verdict
 from artemisVoice.Evals.domain.models import Scenario
+from artemisVoice.Evals.tracing.contracts import TraceSource
 
 
 class PatchStatus(StrEnum):
@@ -25,7 +28,25 @@ class PatchProposal(BaseModel):
     diagnosis_source_run_id: UUID
     status: PatchStatus = PatchStatus.PENDING
     patch_type: str
-    stt_keyword_boosts: list[str]
+    stt_keyword_boosts: list[str] = Field(default_factory=list)
+    # Generalised bounded patch (INTEGRATION_CONTRACT §3 PatchSpec = {type, params}).
+    source: TraceSource = TraceSource.DETERMINISTIC
+    layer: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    rationale: str = ""
+    alternatives: list[dict[str, Any]] = Field(default_factory=list)
+    diagnosis_report_id: UUID | None = None
+    studio_session_id: str | None = None
+    studio_bot_id: str | None = None
+    studio_base_version_id: str | None = None
+    studio_candidate_id: str | None = None
+    studio_graph_diff: Any = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    promotion: dict[str, Any] | None = None
+
+    def patch_spec(self) -> dict[str, Any]:
+        return {"type": self.patch_type, "params": self.params}
 
 
 class ValidationSetResult(BaseModel):
@@ -34,6 +55,7 @@ class ValidationSetResult(BaseModel):
     name: str
     before_pass_rate: float
     after_pass_rate: float
+    cases: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class PatchGateResult(BaseModel):
@@ -45,6 +67,7 @@ class PatchGateResult(BaseModel):
     sets: list[ValidationSetResult]
     passed: bool
     failure_reason: str | None = None
+    warnings: list[str] = Field(default_factory=list)
 
 
 class PatchService:

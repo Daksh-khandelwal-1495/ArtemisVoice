@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
-from artemisVoice.Evals.causal.replay import Diagnosis
+from artemisVoice.Evals.agents.voiceflow import ImportedSession
+from artemisVoice.Evals.causal.replay import CausalReport, Diagnosis
 from artemisVoice.Evals.evaluation.regressions import RegressionCase
 from artemisVoice.Evals.evaluation.review_queue import ReviewItem
 from artemisVoice.Evals.patches.service import PatchGateResult, PatchProposal
@@ -44,7 +47,28 @@ class SQLiteTraceStore:
         self._connection.execute(
             "CREATE TABLE IF NOT EXISTS regression_cases (id TEXT PRIMARY KEY, case_json TEXT NOT NULL)"
         )
+        self._connection.execute(
+            """CREATE TABLE IF NOT EXISTS voiceflow_imports (
+                session_id TEXT PRIMARY KEY,
+                run_id TEXT,
+                replay_ready INTEGER NOT NULL,
+                missing_json TEXT NOT NULL,
+                meta_json TEXT NOT NULL,
+                imported_at TEXT NOT NULL
+            )"""
+        )
+        self._connection.execute(
+            """CREATE TABLE IF NOT EXISTS diagnosis_reports (
+                id TEXT PRIMARY KEY,
+                source_run_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                report_json TEXT NOT NULL
+            )"""
+        )
         self._connection.commit()
+
+    def ping(self) -> bool:
+        return self._connection.execute("SELECT 1").fetchone() == (1,)
 
     def save(self, trace: RunTrace) -> None:
         self._connection.execute(
@@ -92,6 +116,86 @@ class SQLiteTraceStore:
                 f"diagnosis for run {run_id}, turn {turn_index}, intervention {intervention} was not found"
             )
         return Diagnosis.model_validate_json(row[0])
+
+    def list_diagnoses(self, run_id: UUID | str) -> list[Diagnosis]:
+        rows = self._connection.execute(
+            "SELECT diagnosis_json FROM diagnoses WHERE source_run_id = ? ORDER BY created_at, intervention",
+            (str(run_id),),
+        ).fetchall()
+        return [Diagnosis.model_validate_json(row[0]) for row in rows]
+
+    def save_report(self, report: CausalReport) -> None:
+        self._connection.execute(
+            "INSERT OR REPLACE INTO diagnosis_reports (id, source_run_id, created_at, report_json) VALUES (?, ?, ?, ?)",
+            (str(report.id), str(report.source_run_id), report.created_at.isoformat(), report.model_dump_json()),
+        )
+        self._connection.commit()
+
+    def get_report(self, report_id: UUID | str) -> CausalReport:
+        row = self._connection.execute(
+            "SELECT report_json FROM diagnosis_reports WHERE id = ?", (str(report_id),)
+        ).fetchone()
+        if row is None:
+            raise TraceContractError(f"diagnosis report {report_id} was not found")
+        return CausalReport.model_validate_json(row[0])
+
+    def latest_report(self, run_id: UUID | str) -> CausalReport:
+        row = self._connection.execute(
+            "SELECT report_json FROM diagnosis_reports WHERE source_run_id = ? ORDER BY created_at DESC LIMIT 1",
+            (str(run_id),),
+        ).fetchone()
+        if row is None:
+            raise TraceContractError(f"no causal report exists for run {run_id}")
+        return CausalReport.model_validate_json(row[0])
+
+    def list_reports(self, limit: int = 20) -> list[CausalReport]:
+        rows = self._connection.execute(
+            "SELECT report_json FROM diagnosis_reports ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [CausalReport.model_validate_json(row[0]) for row in rows]
+
+    def save_voiceflow_import(
+        self, meta: ImportedSession, *, run_id: UUID | None
+    ) -> None:
+        self._connection.execute(
+            """INSERT OR REPLACE INTO voiceflow_imports
+               (session_id, run_id, replay_ready, missing_json, meta_json, imported_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                meta.session_id,
+                str(run_id) if run_id else None,
+                int(run_id is not None),
+                json.dumps(meta.missing),
+                meta.model_dump_json(),
+                datetime.now(UTC).isoformat(),
+            ),
+        )
+        self._connection.commit()
+
+    def get_voiceflow_import(self, session_id: str) -> dict[str, Any] | None:
+        row = self._connection.execute(
+            "SELECT session_id, run_id, replay_ready, missing_json, meta_json, imported_at FROM voiceflow_imports WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        return _import_row(row) if row else None
+
+    def get_voiceflow_import_by_run(self, run_id: UUID | str) -> dict[str, Any] | None:
+        row = self._connection.execute(
+            "SELECT session_id, run_id, replay_ready, missing_json, meta_json, imported_at FROM voiceflow_imports WHERE run_id = ?",
+            (str(run_id),),
+        ).fetchone()
+        return _import_row(row) if row else None
+
+    def list_voiceflow_imports(self, *, include_refused: bool = False) -> list[dict[str, Any]]:
+        query = "SELECT session_id, run_id, replay_ready, missing_json, meta_json, imported_at FROM voiceflow_imports"
+        if not include_refused:
+            query += " WHERE run_id IS NOT NULL"
+        rows = self._connection.execute(query + " ORDER BY imported_at DESC").fetchall()
+        return [_import_row(row) for row in rows]
+
+    def list_patches(self) -> list[PatchProposal]:
+        rows = self._connection.execute("SELECT patch_json FROM patches").fetchall()
+        return [PatchProposal.model_validate_json(row[0]) for row in rows]
 
     def save_patch(self, proposal: PatchProposal) -> None:
         self._connection.execute(
@@ -149,3 +253,15 @@ class SQLiteTraceStore:
 
     def close(self) -> None:
         self._connection.close()
+
+
+def _import_row(row: tuple[Any, ...]) -> dict[str, Any]:
+    session_id, run_id, replay_ready, missing_json, meta_json, imported_at = row
+    return {
+        "session_id": session_id,
+        "run_id": run_id,
+        "replay_ready": bool(replay_ready),
+        "missing": json.loads(missing_json),
+        "meta": ImportedSession.model_validate_json(meta_json),
+        "imported_at": imported_at,
+    }
