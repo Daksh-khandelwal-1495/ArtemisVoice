@@ -1,0 +1,123 @@
+{
+  "name": "dhi_clinics",
+  "description": "Fictional DHI hair-restoration clinic locations for consultation booking demos.",
+  "columns": [
+    "clinic_id",
+    "name",
+    "city",
+    "address",
+    "phone",
+    "timings",
+    "services"
+  ],
+  "rows": [
+    {
+      "clinic_id": "DHI01",
+      "name": "DHI Demo Clinic - Bandra",
+      "city": "Mumbai",
+      "address": "Hill Road, Bandra West, Mumbai - 400050",
+      "phone": "022-5552-0001",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI02",
+      "name": "DHI Demo Clinic - Andheri",
+      "city": "Mumbai",
+      "address": "Veera Desai Road, Andheri West, Mumbai - 400053",
+      "phone": "022-5552-0002",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI03",
+      "name": "DHI Demo Clinic - Greater Kailash",
+      "city": "Delhi",
+      "address": "M Block Market, GK-1, New Delhi - 110048",
+      "phone": "011-5552-0003",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI04",
+      "name": "DHI Demo Clinic - Gurugram",
+      "city": "Delhi",
+      "address": "Golf Course Road, Sector 54, Gurugram - 122002",
+      "phone": "0124-5552-0004",
+      "timings": "Tue-Sun 11:00-20:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI05",
+      "name": "DHI Demo Clinic - Indiranagar",
+      "city": "Bengaluru",
+      "address": "100 Feet Road, Indiranagar, Bengaluru - 560038",
+      "phone": "080-5552-0005",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI06",
+      "name": "DHI Demo Clinic - Jayanagar",
+      "city": "Bengaluru",
+      "address": "4th Block, Jayanagar, Bengaluru - 560011",
+      "phone": "080-5552-0006",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI07",
+      "name": "DHI Demo Clinic - Nungambakkam",
+      "city": "Chennai",
+      "address": "Khader Nawaz Khan Road, Chennai - 600006",
+      "phone": "044-5552-0007",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI08",
+      "name": "DHI Demo Clinic - Jubilee Hills",
+      "city": "Hyderabad",
+      "address": "Road No. 36, Jubilee Hills, Hyderabad - 500033",
+      "phone": "040-5552-0008",
+      "timings": "Tue-Sun 11:00-20:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI09",
+      "name": "DHI Demo Clinic - Koregaon Park",
+      "city": "Pune",
+      "address": "North Main Road, Koregaon Park, Pune - 411001",
+      "phone": "020-5552-0009",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI10",
+      "name": "DHI Demo Clinic - Park Street",
+      "city": "Kolkata",
+      "address": "Park Street, Kolkata - 700016",
+      "phone": "033-5552-0010",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI11",
+      "name": "DHI Demo Clinic - Prahlad Nagar",
+      "city": "Ahmedabad",
+      "address": "Corporate Road, Prahlad Nagar, Ahmedabad - 380015",
+      "phone": "079-5552-0011",
+      "timings": "Mon-Sat 10:00-19:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    },
+    {
+      "clinic_id": "DHI12",
+      "name": "DHI Demo Clinic - Sector 9",
+      "city": "Chandigarh",
+      "address": "Madhya Marg, Sector 9, Chandigarh - 160009",
+      "phone": "0172-5552-0012",
+      "timings": "Tue-Sun 11:00-20:00",
+      "services": "hair transplant, beard, eyebrow, PRP, scalp analysis"
+    }
+  ]
+}

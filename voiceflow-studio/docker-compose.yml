@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: voiceflow
+      POSTGRES_PASSWORD: voiceflow
+      POSTGRES_DB: voiceflow
+    ports: ["5433:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voiceflow"]
+      interval: 3s
+      retries: 20
+volumes:
+  pgdata:

@@ -1,0 +1,69 @@
+{
+  "name": "kia_models",
+  "description": "Kia models serviced in India (demo catalogue; variants indicative only).",
+  "columns": [
+    "model",
+    "segment",
+    "variants",
+    "fuel_types",
+    "service_interval"
+  ],
+  "rows": [
+    {
+      "model": "Seltos",
+      "segment": "compact SUV",
+      "variants": "HTE, HTK, HTK+, HTX, HTX+, GTX+, X-Line",
+      "fuel_types": "petrol, turbo petrol, diesel",
+      "service_interval": "10,000 km / 1 year"
+    },
+    {
+      "model": "Sonet",
+      "segment": "sub-compact SUV",
+      "variants": "HTE, HTK, HTK+, HTX, GTX+, X-Line",
+      "fuel_types": "petrol, turbo petrol, diesel",
+      "service_interval": "10,000 km / 1 year"
+    },
+    {
+      "model": "Carens",
+      "segment": "MPV",
+      "variants": "Premium, Prestige, Prestige+, Luxury, Luxury+, X-Line",
+      "fuel_types": "petrol, turbo petrol, diesel",
+      "service_interval": "10,000 km / 1 year"
+    },
+    {
+      "model": "Carens Clavis",
+      "segment": "MPV",
+      "variants": "HTE, HTK, HTK+, HTX, HTX+",
+      "fuel_types": "petrol, turbo petrol, diesel, electric",
+      "service_interval": "10,000 km / 1 year"
+    },
+    {
+      "model": "Carnival",
+      "segment": "premium MPV",
+      "variants": "Limousine, Limousine+",
+      "fuel_types": "diesel",
+      "service_interval": "10,000 km / 1 year"
+    },
+    {
+      "model": "Syros",
+      "segment": "compact SUV",
+      "variants": "HTK, HTK+, HTX, HTX+, HTX+ (O)",
+      "fuel_types": "turbo petrol, diesel",
+      "service_interval": "10,000 km / 1 year"
+    },
+    {
+      "model": "EV6",
+      "segment": "electric crossover",
+      "variants": "GT Line, GT Line AWD",
+      "fuel_types": "electric",
+      "service_interval": "20,000 km / 1 year"
+    },
+    {
+      "model": "EV9",
+      "segment": "electric SUV",
+      "variants": "GT Line AWD",
+      "fuel_types": "electric",
+      "service_interval": "20,000 km / 1 year"
+    }
+  ]
+}

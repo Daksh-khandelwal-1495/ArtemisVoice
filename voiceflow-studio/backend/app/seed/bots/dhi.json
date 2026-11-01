@@ -1,0 +1,694 @@
+{
+  "slug": "dhi",
+  "name": "DHI Consultation Booking",
+  "description": "Books DHI hair-restoration consultations: concern, duration, age, history, clinic lookup, date and contact. Refuses medical diagnosis.",
+  "industry": "Healthcare",
+  "avatar_color": "#B8860B",
+  "language": "en-IN",
+  "status": "published",
+  "config": {
+    "stt": {
+      "provider": "deepgram",
+      "model": "nova-3",
+      "language": "en-IN",
+      "keywords": [
+        "DHI",
+        "Direct Hair Implantation",
+        "hair transplant",
+        "PRP",
+        "minoxidil",
+        "finasteride",
+        "grafts",
+        "beard",
+        "eyebrow",
+        "consultation"
+      ],
+      "options": {}
+    },
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "temperature": 0.4,
+      "max_tokens": 300,
+      "base_url": null,
+      "options": {}
+    },
+    "tts": {
+      "provider": "soniox",
+      "model": "tts-rt-v2",
+      "voice": "Nina",
+      "language": "en",
+      "speed": 0.95,
+      "sample_rate": 24000,
+      "options": {}
+    },
+    "vad": {
+      "stop_secs": 0.6,
+      "start_secs": 0.2,
+      "confidence": 0.7
+    },
+    "behavior": {
+      "allow_interruptions": true,
+      "idle_timeout_secs": 18,
+      "idle_max_nudges": 2,
+      "max_call_duration_secs": 900,
+      "greeting": "Hello, thank you for calling DHI. I'm Meera. How can I help you today?",
+      "fallback_message": "Sorry, I'm having a little trouble right now. Let me connect you to a colleague who can help.",
+      "record_transcript": true,
+      "mask_sensitive_in_logs": true
+    }
+  },
+  "graph": {
+    "initial_node": "start",
+    "global_prompt": "You are Meera, a warm, empathetic and discreet consultation coordinator for DHI (Direct Hair Implantation) clinics in India. Hair loss is a sensitive topic: be reassuring, never judgmental, and never comment on the caller's appearance. You book consultations only. You are not a doctor: never diagnose, never recommend medicines or dosages, and never promise results. For medical questions, say a DHI doctor will assess them at the consultation.\n\nVoice style rules (this is a phone/voice call, not chat):\n- Speak in short, natural sentences. One question at a time. Never use bullet points, emojis, markdown or URLs.\n- Use polite Indian English (\"Sure\", \"No problem\", \"Thank you, ji\" only if the caller uses it). Do not over-apologise.\n- Callers may speak Hinglish or mix languages (e.g. \"haan\", \"nahi\", \"theek hai\", \"kal subah\", \"parso\"). Understand it and reply in simple English, mirroring a few Hindi words only if the caller prefers Hindi.\n- Say numbers the Indian way: \"five lakh\", \"twelve thousand\", \"nine eight two zero...\" for phone numbers digit by digit.\n- Dates: interpret relative dates (\"kal\" = tomorrow, \"parso\" = day after tomorrow, \"next Saturday\") using the current date provided to you, and confirm the actual calendar date back to the caller.\n- If you did not catch something, ask again briefly. If the caller is upset or asks for a human, offer to connect them.\n- Never invent information that is not in your instructions or lookup results. If unsure, say a specialist will confirm.",
+    "variables": {
+      "brand": "DHI"
+    },
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "label": "Greeting",
+        "position": {
+          "x": 80,
+          "y": 360
+        },
+        "task_prompt": "Greet the caller as Meera from DHI, warmly and discreetly. Ask how you can help. If they want a consultation or are concerned about hair loss, move to booking. If they ask medical, procedure or cost questions, move to the FAQ.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_start_1",
+            "target": "collect_concern",
+            "kind": "intent",
+            "condition": "Caller wants to book a consultation or describes a hair, beard or eyebrow concern",
+            "label": "Book consultation",
+            "priority": 0
+          },
+          {
+            "id": "t_start_2",
+            "target": "medical_faq",
+            "kind": "intent",
+            "condition": "Caller asks a medical question, about suitability, side effects, results, medicines or procedure cost",
+            "label": "Has questions",
+            "priority": 0
+          },
+          {
+            "id": "t_start_3",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller is not interested or called by mistake",
+            "label": "Not interested",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 8,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "medical_faq",
+        "type": "conversation",
+        "label": "Medical questions (no diagnosis)",
+        "position": {
+          "x": 380,
+          "y": 0
+        },
+        "task_prompt": "You are NOT a doctor and must NOT diagnose, recommend medicines or doses, or promise results. You may share only this general information: DHI uses the Direct Hair Implantation technique where follicles are extracted and implanted one by one with a patented implanter pen, performed by trained doctors; it can be used for scalp, beard and eyebrows; suitability and the number of grafts are decided only after a scalp analysis by a doctor; pricing depends on the number of grafts and is shared at the consultation. For any personal medical question (medicines like finasteride or minoxidil, causes of their hair loss, side effects for them), say a DHI doctor will answer that properly during the consultation, then offer to book one.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_medical_faq_4",
+            "target": "collect_concern",
+            "kind": "intent",
+            "condition": "Caller agrees to book a consultation",
+            "label": "Book consultation",
+            "priority": 0
+          },
+          {
+            "id": "t_medical_faq_5",
+            "target": "transfer_agent",
+            "kind": "intent",
+            "condition": "Caller insists on speaking to a counsellor now",
+            "label": "Counsellor",
+            "priority": 0
+          },
+          {
+            "id": "t_medical_faq_6",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller has no more questions and does not want to book",
+            "label": "Done",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_concern",
+        "type": "collect",
+        "label": "Concern & duration",
+        "position": {
+          "x": 380,
+          "y": 360
+        },
+        "task_prompt": "Gently ask what their main concern is (hair loss, hair thinning, beard, or eyebrow) and roughly how long they have noticed it.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "concern",
+            "label": "Concern",
+            "type": "enum",
+            "required": true,
+            "description": "hair_loss = bald patches/receding hairline; hair_thinning = reduced density; beard/eyebrow = restoration",
+            "validation": {
+              "options": [
+                "hair_loss",
+                "hair_thinning",
+                "beard",
+                "eyebrow"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "concern_duration",
+            "label": "Duration",
+            "type": "string",
+            "required": true,
+            "description": "How long they have had the concern, e.g. '6 months', '3 years'",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "2 years"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_concern_7",
+            "target": "collect_profile",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Concern captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_profile",
+        "type": "collect",
+        "label": "Age & history",
+        "position": {
+          "x": 680,
+          "y": 360
+        },
+        "task_prompt": "Ask their age (consultations are for adults 18 to 80). Then ask, optionally, whether they have tried any treatments before, such as oils, PRP, medicines or a previous transplant. Do not comment medically on their answers.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "age",
+            "label": "Age",
+            "type": "integer",
+            "required": true,
+            "description": "Age in years, 18 to 80",
+            "validation": {
+              "min": 18,
+              "max": 80
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "32"
+          },
+          {
+            "name": "prior_treatments",
+            "label": "Prior treatments",
+            "type": "string",
+            "required": false,
+            "description": "Any previous treatments tried, e.g. 'minoxidil for 1 year', 'PRP twice', 'none'",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 1
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_profile_8",
+            "target": "collect_city",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Profile captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_city",
+        "type": "collect",
+        "label": "City",
+        "position": {
+          "x": 980,
+          "y": 360
+        },
+        "task_prompt": "Ask which city they would prefer to visit a DHI clinic in.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "city",
+            "label": "City",
+            "type": "string",
+            "required": true,
+            "description": "Preferred city for the clinic visit",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "Delhi"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_city_9",
+            "target": "lookup_clinics",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "City captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "lookup_clinics",
+        "type": "lookup",
+        "label": "Find clinics",
+        "position": {
+          "x": 1280,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_lookup_clinics_10",
+            "target": "choose_clinic",
+            "kind": "expression",
+            "condition": "clinics_found == True",
+            "label": "Clinic found",
+            "priority": 0
+          },
+          {
+            "id": "t_lookup_clinics_11",
+            "target": "no_clinic",
+            "kind": "fallback",
+            "condition": "",
+            "label": "No clinic",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": null,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "no_clinic"
+        },
+        "lookup": {
+          "dataset": "dhi_clinics",
+          "match": {
+            "city": "city"
+          },
+          "match_mode": "icontains",
+          "save_as": "clinics",
+          "single": false,
+          "limit": 3
+        }
+      },
+      {
+        "id": "choose_clinic",
+        "type": "collect",
+        "label": "Choose clinic",
+        "position": {
+          "x": 1580,
+          "y": 180
+        },
+        "task_prompt": "DHI clinics in {{city}}: {{clinics}}. If there is one, confirm it; if several, read the names and areas and ask which is convenient.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "clinic_name",
+            "label": "Clinic",
+            "type": "string",
+            "required": true,
+            "description": "Exact clinic name from the list",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_choose_clinic_12",
+            "target": "collect_schedule",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Clinic chosen",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "no_clinic"
+        }
+      },
+      {
+        "id": "no_clinic",
+        "type": "conversation",
+        "label": "No clinic fallback",
+        "position": {
+          "x": 1580,
+          "y": 540
+        },
+        "task_prompt": "Explain that there is no DHI clinic listed in {{city}} yet. Offer a video consultation with a DHI doctor, or a visit to the nearest city clinic (Mumbai, Delhi, Gurugram, Bengaluru, Chennai, Hyderabad, Pune, Kolkata, Ahmedabad, Chandigarh).",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_no_clinic_13",
+            "target": "collect_city",
+            "kind": "intent",
+            "condition": "Caller wants to visit a clinic in another city",
+            "label": "Other city",
+            "priority": 0
+          },
+          {
+            "id": "t_no_clinic_14",
+            "target": "collect_schedule",
+            "kind": "intent",
+            "condition": "Caller wants a video consultation instead",
+            "label": "Video consult",
+            "priority": 0
+          },
+          {
+            "id": "t_no_clinic_15",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller does not want to continue",
+            "label": "Decline",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_schedule",
+        "type": "collect",
+        "label": "Preferred date",
+        "position": {
+          "x": 1880,
+          "y": 360
+        },
+        "task_prompt": "Ask for the preferred consultation date and time of day. Clinic chosen: {{clinic_name}}. If no clinic was chosen, this is a video consultation with a DHI doctor. Clinics usually open 10 am to 7 pm. The date must be in the future.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "preferred_date",
+            "label": "Preferred date",
+            "type": "date",
+            "required": true,
+            "description": "Consultation date, after today",
+            "validation": {
+              "future_only": true
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "time_slot",
+            "label": "Time of day",
+            "type": "enum",
+            "required": true,
+            "description": "Preferred time window",
+            "validation": {
+              "options": [
+                "morning",
+                "afternoon",
+                "evening"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_schedule_16",
+            "target": "collect_contact",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Date captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_contact",
+        "type": "collect",
+        "label": "Contact details",
+        "position": {
+          "x": 2180,
+          "y": 360
+        },
+        "task_prompt": "Ask for their name and mobile number, and optionally an email for the consultation details. Reassure them their details are kept confidential.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "customer_name",
+            "label": "Name",
+            "type": "string",
+            "required": true,
+            "description": "Full name",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "phone",
+            "label": "Mobile number",
+            "type": "phone",
+            "required": true,
+            "description": "10-digit Indian mobile number",
+            "validation": {},
+            "confirm": true,
+            "sensitive": true,
+            "max_retries": 3
+          },
+          {
+            "name": "email",
+            "label": "Email",
+            "type": "email",
+            "required": false,
+            "description": "Optional email address",
+            "validation": {},
+            "confirm": false,
+            "sensitive": true,
+            "max_retries": 1
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_contact_17",
+            "target": "confirm_booking",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Contact captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "confirm_booking",
+        "type": "conversation",
+        "label": "Confirm summary",
+        "position": {
+          "x": 2480,
+          "y": 360
+        },
+        "task_prompt": "Summarise: a consultation for {{concern}} at {{clinic_name}} (or video, if no clinic) on {{preferred_date}}, {{time_slot}}, for {{customer_name}} on {{phone}}. Mention the first consultation includes a scalp analysis. Ask if everything is correct.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_confirm_booking_18",
+            "target": "end_booked",
+            "kind": "intent",
+            "condition": "Caller confirms the details",
+            "label": "Confirmed",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_19",
+            "target": "collect_schedule",
+            "kind": "intent",
+            "condition": "Caller wants to change the date or time",
+            "label": "Change date",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_20",
+            "target": "collect_city",
+            "kind": "intent",
+            "condition": "Caller wants a different city or clinic",
+            "label": "Change clinic",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_21",
+            "target": "collect_contact",
+            "kind": "intent",
+            "condition": "Caller wants to correct contact details",
+            "label": "Fix contact",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 8,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "transfer_agent",
+        "type": "transfer",
+        "label": "Hair counsellor",
+        "position": {
+          "x": 980,
+          "y": -180
+        },
+        "task_prompt": "",
+        "say_on_enter": "Of course. Let me connect you to one of our hair restoration counsellors. Please hold for a moment.",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "transfer_number": "+91-11-5552-0000"
+      },
+      {
+        "id": "end_booked",
+        "type": "end",
+        "label": "Booked",
+        "position": {
+          "x": 2780,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": "Your consultation is booked. You'll receive an SMS with the details shortly. Thank you for trusting DHI, take care!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "completed"
+      },
+      {
+        "id": "end_no_booking",
+        "type": "end",
+        "label": "No booking",
+        "position": {
+          "x": 1280,
+          "y": 900
+        },
+        "task_prompt": "",
+        "say_on_enter": "No problem. Whenever you're ready, we're happy to help. Take care and have a good day!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "not_interested"
+      }
+    ]
+  }
+}

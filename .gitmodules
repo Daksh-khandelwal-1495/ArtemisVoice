@@ -1,0 +1,3 @@
+[submodule "voiceflow-studio/vendor/pipecat"]
+	path = voiceflow-studio/vendor/pipecat
+	url = https://github.com/pipecat-ai/pipecat.git

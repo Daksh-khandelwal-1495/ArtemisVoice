@@ -1,0 +1,237 @@
+{
+  "name": "kia_service_centers",
+  "description": "Fictional Kia authorised service workshops for service-appointment demos.",
+  "columns": [
+    "center_id",
+    "name",
+    "city",
+    "pincode",
+    "address",
+    "phone",
+    "services",
+    "pickup_drop",
+    "open_hours"
+  ],
+  "rows": [
+    {
+      "center_id": "KS001",
+      "name": "Seltos Service Hub (Demo) - Powai",
+      "city": "Mumbai",
+      "pincode": "400072",
+      "address": "Saki Vihar Road, Powai, Mumbai - 400072",
+      "phone": "022-5551-0001",
+      "services": "periodic, repair, warranty, body_shop, ev",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS002",
+      "name": "Western Line Kia Care (Demo) - Malad",
+      "city": "Mumbai",
+      "pincode": "400064",
+      "address": "Link Road, Malad West, Mumbai - 400064",
+      "phone": "022-5551-0002",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "no",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS003",
+      "name": "Harbour Kia Care (Demo) - Nerul",
+      "city": "Mumbai",
+      "pincode": "400706",
+      "address": "Palm Beach Road, Nerul, Navi Mumbai - 400706",
+      "phone": "022-5551-0003",
+      "services": "periodic, repair, warranty, body_shop",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS004",
+      "name": "Hinjewadi Kia Care (Demo) - Hinjewadi",
+      "city": "Pune",
+      "pincode": "411057",
+      "address": "Phase 1, Hinjewadi, Pune - 411057",
+      "phone": "020-5551-0004",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS005",
+      "name": "Market Yard Kia Care (Demo) - Bibwewadi",
+      "city": "Pune",
+      "pincode": "411037",
+      "address": "Satara Road, Bibwewadi, Pune - 411037",
+      "phone": "020-5551-0005",
+      "services": "periodic, repair, warranty, body_shop, ev",
+      "pickup_drop": "no",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS006",
+      "name": "Aerocity Kia Care (Demo) - Mahipalpur",
+      "city": "Delhi",
+      "pincode": "110037",
+      "address": "NH-48, Mahipalpur, New Delhi - 110037",
+      "phone": "011-5551-0006",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS007",
+      "name": "Pitampura Kia Care (Demo) - Pitampura",
+      "city": "Delhi",
+      "pincode": "110034",
+      "address": "Outer Ring Road, Pitampura, Delhi - 110034",
+      "phone": "011-5551-0007",
+      "services": "periodic, repair, warranty, body_shop",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS008",
+      "name": "Mathura Road Kia Care (Demo) - Badarpur",
+      "city": "Delhi",
+      "pincode": "110044",
+      "address": "Mathura Road, Badarpur, New Delhi - 110044",
+      "phone": "011-5551-0008",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "no",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS009",
+      "name": "Electronic City Kia Care (Demo)",
+      "city": "Bengaluru",
+      "pincode": "560100",
+      "address": "Hosur Road, Electronic City, Bengaluru - 560100",
+      "phone": "080-5551-0009",
+      "services": "periodic, repair, warranty, body_shop, ev",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS010",
+      "name": "Hebbal Kia Care (Demo) - Hebbal",
+      "city": "Bengaluru",
+      "pincode": "560024",
+      "address": "Bellary Road, Hebbal, Bengaluru - 560024",
+      "phone": "080-5551-0010",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS011",
+      "name": "Marathahalli Kia Care (Demo)",
+      "city": "Bengaluru",
+      "pincode": "560037",
+      "address": "Outer Ring Road, Marathahalli, Bengaluru - 560037",
+      "phone": "080-5551-0011",
+      "services": "periodic, repair, warranty, body_shop",
+      "pickup_drop": "no",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS012",
+      "name": "Porur Kia Care (Demo) - Porur",
+      "city": "Chennai",
+      "pincode": "600116",
+      "address": "Mount Poonamallee Road, Porur, Chennai - 600116",
+      "phone": "044-5551-0012",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS013",
+      "name": "Thoraipakkam Kia Care (Demo)",
+      "city": "Chennai",
+      "pincode": "600097",
+      "address": "OMR, Thoraipakkam, Chennai - 600097",
+      "phone": "044-5551-0013",
+      "services": "periodic, repair, warranty, body_shop, ev",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS014",
+      "name": "Kondapur Kia Care (Demo) - Kondapur",
+      "city": "Hyderabad",
+      "pincode": "500084",
+      "address": "Botanical Garden Road, Kondapur, Hyderabad - 500084",
+      "phone": "040-5551-0014",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "no",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS015",
+      "name": "Begumpet Kia Care (Demo) - Begumpet",
+      "city": "Hyderabad",
+      "pincode": "500016",
+      "address": "Prakash Nagar, Begumpet, Hyderabad - 500016",
+      "phone": "040-5551-0015",
+      "services": "periodic, repair, warranty, body_shop",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS016",
+      "name": "Topsia Kia Care (Demo) - Topsia",
+      "city": "Kolkata",
+      "pincode": "700039",
+      "address": "Topsia Road, Kolkata - 700039",
+      "phone": "033-5551-0016",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS017",
+      "name": "Rajarhat Kia Care (Demo) - Rajarhat",
+      "city": "Kolkata",
+      "pincode": "700102",
+      "address": "VIP Road, Rajarhat, Kolkata - 700102",
+      "phone": "033-5551-0017",
+      "services": "periodic, repair, warranty, body_shop, ev",
+      "pickup_drop": "no",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS018",
+      "name": "Satellite Kia Care (Demo) - Satellite",
+      "city": "Ahmedabad",
+      "pincode": "380015",
+      "address": "Ramdev Nagar, Satellite, Ahmedabad - 380015",
+      "phone": "079-5551-0018",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS019",
+      "name": "Vatva Kia Care (Demo) - Vatva",
+      "city": "Ahmedabad",
+      "pincode": "382470",
+      "address": "GIDC Phase 4, Vatva, Ahmedabad - 382470",
+      "phone": "079-5551-0019",
+      "services": "periodic, repair, warranty, body_shop",
+      "pickup_drop": "yes",
+      "open_hours": "09:00-18:30"
+    },
+    {
+      "center_id": "KS020",
+      "name": "Pink City Kia Care (Demo) - Malviya Nagar",
+      "city": "Jaipur",
+      "pincode": "302017",
+      "address": "JLN Marg, Malviya Nagar, Jaipur - 302017",
+      "phone": "0141-5551-0020",
+      "services": "periodic, repair, warranty",
+      "pickup_drop": "no",
+      "open_hours": "09:00-18:30"
+    }
+  ]
+}

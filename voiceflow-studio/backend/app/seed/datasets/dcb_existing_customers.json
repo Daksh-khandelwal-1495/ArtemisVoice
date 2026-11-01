@@ -1,0 +1,166 @@
+{
+  "name": "dcb_existing_customers",
+  "description": "Obviously fictional DCB Bank test customers (phones 90000000xx, masked IDs) for existing-customer detection.",
+  "columns": [
+    "customer_id",
+    "name",
+    "phone",
+    "city",
+    "home_branch",
+    "relationship",
+    "customer_since",
+    "masked_pan"
+  ],
+  "rows": [
+    {
+      "customer_id": "DCBTEST0001",
+      "name": "Test Customer Aarav",
+      "phone": "9000000001",
+      "city": "Mumbai",
+      "home_branch": "Fort Branch (Demo)",
+      "relationship": "savings",
+      "customer_since": "2016",
+      "masked_pan": "XXXXX1007X"
+    },
+    {
+      "customer_id": "DCBTEST0002",
+      "name": "Test Customer Priya",
+      "phone": "9000000002",
+      "city": "Mumbai",
+      "home_branch": "Andheri Branch (Demo)",
+      "relationship": "salary",
+      "customer_since": "2019",
+      "masked_pan": "XXXXX1014X"
+    },
+    {
+      "customer_id": "DCBTEST0003",
+      "name": "Test Customer Rohan",
+      "phone": "9000000003",
+      "city": "Pune",
+      "home_branch": "Camp Branch (Demo)",
+      "relationship": "savings",
+      "customer_since": "2014",
+      "masked_pan": "XXXXX1021X"
+    },
+    {
+      "customer_id": "DCBTEST0004",
+      "name": "Test Customer Sneha",
+      "phone": "9000000004",
+      "city": "Delhi",
+      "home_branch": "Connaught Place Branch (Demo)",
+      "relationship": "salary",
+      "customer_since": "2021",
+      "masked_pan": "XXXXX1028X"
+    },
+    {
+      "customer_id": "DCBTEST0005",
+      "name": "Test Customer Vikram",
+      "phone": "9000000005",
+      "city": "Delhi",
+      "home_branch": "Lajpat Nagar Branch (Demo)",
+      "relationship": "current",
+      "customer_since": "2012",
+      "masked_pan": "XXXXX1035X"
+    },
+    {
+      "customer_id": "DCBTEST0006",
+      "name": "Test Customer Ananya",
+      "phone": "9000000006",
+      "city": "Bengaluru",
+      "home_branch": "Koramangala Branch (Demo)",
+      "relationship": "salary",
+      "customer_since": "2020",
+      "masked_pan": "XXXXX1042X"
+    },
+    {
+      "customer_id": "DCBTEST0007",
+      "name": "Test Customer Karthik",
+      "phone": "9000000007",
+      "city": "Chennai",
+      "home_branch": "T Nagar Branch (Demo)",
+      "relationship": "savings",
+      "customer_since": "2017",
+      "masked_pan": "XXXXX1049X"
+    },
+    {
+      "customer_id": "DCBTEST0008",
+      "name": "Test Customer Meera",
+      "phone": "9000000008",
+      "city": "Hyderabad",
+      "home_branch": "Banjara Hills Branch (Demo)",
+      "relationship": "savings",
+      "customer_since": "2018",
+      "masked_pan": "XXXXX1056X"
+    },
+    {
+      "customer_id": "DCBTEST0009",
+      "name": "Test Customer Arjun",
+      "phone": "9000000009",
+      "city": "Ahmedabad",
+      "home_branch": "Ashram Road Branch (Demo)",
+      "relationship": "current",
+      "customer_since": "2015",
+      "masked_pan": "XXXXX1063X"
+    },
+    {
+      "customer_id": "DCBTEST0010",
+      "name": "Test Customer Ishita",
+      "phone": "9000000010",
+      "city": "Kolkata",
+      "home_branch": "Camac Street Branch (Demo)",
+      "relationship": "salary",
+      "customer_since": "2022",
+      "masked_pan": "XXXXX1070X"
+    },
+    {
+      "customer_id": "DCBTEST0011",
+      "name": "Test Customer Farhan",
+      "phone": "9000000011",
+      "city": "Mumbai",
+      "home_branch": "Kurla Branch (Demo)",
+      "relationship": "current",
+      "customer_since": "2013",
+      "masked_pan": "XXXXX1077X"
+    },
+    {
+      "customer_id": "DCBTEST0012",
+      "name": "Test Customer Neha",
+      "phone": "9000000012",
+      "city": "Pune",
+      "home_branch": "Kothrud Branch (Demo)",
+      "relationship": "salary",
+      "customer_since": "2023",
+      "masked_pan": "XXXXX1084X"
+    },
+    {
+      "customer_id": "DCBTEST0013",
+      "name": "Test Customer Rahul",
+      "phone": "9000000013",
+      "city": "Bengaluru",
+      "home_branch": "Jayanagar Branch (Demo)",
+      "relationship": "home_loan",
+      "customer_since": "2019",
+      "masked_pan": "XXXXX1091X"
+    },
+    {
+      "customer_id": "DCBTEST0014",
+      "name": "Test Customer Divya",
+      "phone": "9000000014",
+      "city": "Chennai",
+      "home_branch": "Adyar Branch (Demo)",
+      "relationship": "savings",
+      "customer_since": "2020",
+      "masked_pan": "XXXXX1098X"
+    },
+    {
+      "customer_id": "DCBTEST0015",
+      "name": "Test Customer Sameer",
+      "phone": "9000000015",
+      "city": "Hyderabad",
+      "home_branch": "Kukatpally Branch (Demo)",
+      "relationship": "fixed_deposit",
+      "customer_since": "2011",
+      "masked_pan": "XXXXX1105X"
+    }
+  ]
+}

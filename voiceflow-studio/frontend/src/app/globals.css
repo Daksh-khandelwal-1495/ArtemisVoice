@@ -1,0 +1,138 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f7f7f8;
+  --panel: #ffffff;
+  --panel-2: #f2f2f4;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --fg: #18181b;
+  --muted: #71717a;
+  --subtle: #a1a1aa;
+  --brand: #4f46e5;
+  --brand-fg: #ffffff;
+  --canvas: #fafafa;
+  --canvas-dot: #d4d4d8;
+  --ring: rgb(79 70 229 / 0.35);
+}
+
+:root.dark {
+  --bg: #0b0b0e;
+  --panel: #131317;
+  --panel-2: #1b1b21;
+  --border: #26262d;
+  --border-strong: #34343c;
+  --fg: #ececf1;
+  --muted: #9a9aa6;
+  --subtle: #6b6b76;
+  --brand: #6d65f5;
+  --brand-fg: #ffffff;
+  --canvas: #0e0e12;
+  --canvas-dot: #2a2a31;
+  --ring: rgb(109 101 245 / 0.45);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-canvas: var(--canvas);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: var(--ring);
+}
+
+/* scrollbars */
+.thin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+}
+
+/* React Flow theming */
+.react-flow {
+  --xy-background-color: var(--canvas);
+  --xy-node-border-radius: 10px;
+  --xy-edge-label-background-color: var(--panel);
+  --xy-edge-label-color: var(--fg);
+  --xy-controls-button-background-color: var(--panel);
+  --xy-controls-button-background-color-hover: var(--panel-2);
+  --xy-controls-button-color: var(--fg);
+  --xy-controls-button-border-color: var(--border);
+  --xy-minimap-background-color: var(--panel);
+  --xy-minimap-mask-background-color: rgb(120 120 140 / 0.12);
+  --xy-attribution-background-color: transparent;
+}
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--panel);
+  background: var(--subtle);
+}
+.react-flow__handle:hover {
+  background: var(--brand);
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--brand) !important;
+  stroke-width: 2.5px;
+}
+.react-flow__controls {
+  box-shadow: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.react-flow__minimap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+@keyframes flash {
+  0%, 100% { background-color: transparent; }
+  30% { background-color: rgb(239 68 68 / 0.18); }
+}
+.animate-flash {
+  animation: flash 1.2s ease-in-out 2;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--ring); }
+  70% { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.pulse-ring {
+  animation: pulse-ring 1.6s infinite;
+}

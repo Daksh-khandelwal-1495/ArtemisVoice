@@ -1,0 +1,316 @@
+{
+  "name": "tata_dealers",
+  "description": "Fictional Tata Motors dealerships used for test-drive booking demos.",
+  "columns": [
+    "dealer_id",
+    "name",
+    "city",
+    "pincode",
+    "address",
+    "phone",
+    "ev_ready",
+    "open_hours"
+  ],
+  "rows": [
+    {
+      "dealer_id": "TD001",
+      "name": "Sahyadri Motors (Demo) - Andheri West",
+      "city": "Mumbai",
+      "pincode": "400053",
+      "address": "Plot 12, Link Road, Andheri West, Mumbai - 400053",
+      "phone": "022-5550-0001",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD002",
+      "name": "Konkan Wheels (Demo) - Vashi",
+      "city": "Mumbai",
+      "pincode": "400703",
+      "address": "Sector 17, Palm Beach Road, Vashi, Navi Mumbai - 400703",
+      "phone": "022-5550-0002",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD003",
+      "name": "Thane Auto Hub (Demo) - Thane West",
+      "city": "Mumbai",
+      "pincode": "400601",
+      "address": "Ghodbunder Road, Thane West - 400601",
+      "phone": "022-5550-0003",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD004",
+      "name": "Eastern Express Motors (Demo) - Ghatkopar",
+      "city": "Mumbai",
+      "pincode": "400077",
+      "address": "LBS Marg, Ghatkopar East, Mumbai - 400077",
+      "phone": "022-5550-0004",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD005",
+      "name": "Deccan Drive (Demo) - Baner",
+      "city": "Pune",
+      "pincode": "411045",
+      "address": "Baner-Pashan Link Road, Baner, Pune - 411045",
+      "phone": "020-5550-0005",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD006",
+      "name": "Sinhagad Motors (Demo) - Viman Nagar",
+      "city": "Pune",
+      "pincode": "411014",
+      "address": "Nagar Road, Viman Nagar, Pune - 411014",
+      "phone": "020-5550-0006",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD007",
+      "name": "Pimpri Auto World (Demo) - Pimpri",
+      "city": "Pune",
+      "pincode": "411018",
+      "address": "Old Mumbai-Pune Highway, Pimpri, Pune - 411018",
+      "phone": "020-5550-0007",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD008",
+      "name": "Capital Motors (Demo) - Okhla",
+      "city": "Delhi",
+      "pincode": "110020",
+      "address": "Okhla Industrial Area Phase 1, New Delhi - 110020",
+      "phone": "011-5550-0008",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD009",
+      "name": "Northern Star Auto (Demo) - Rohini",
+      "city": "Delhi",
+      "pincode": "110085",
+      "address": "Sector 10, Rohini, New Delhi - 110085",
+      "phone": "011-5550-0009",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD010",
+      "name": "Yamuna Wheels (Demo) - Preet Vihar",
+      "city": "Delhi",
+      "pincode": "110092",
+      "address": "Vikas Marg, Preet Vihar, Delhi - 110092",
+      "phone": "011-5550-0010",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD011",
+      "name": "Westgate Motors (Demo) - Rajouri Garden",
+      "city": "Delhi",
+      "pincode": "110064",
+      "address": "Ring Road, Rajouri Garden, New Delhi - 110064",
+      "phone": "011-5550-0011",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD012",
+      "name": "Garden City Motors (Demo) - Whitefield",
+      "city": "Bengaluru",
+      "pincode": "560066",
+      "address": "ITPL Main Road, Whitefield, Bengaluru - 560066",
+      "phone": "080-5550-0012",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD013",
+      "name": "Silicon Drive (Demo) - HSR Layout",
+      "city": "Bengaluru",
+      "pincode": "560102",
+      "address": "27th Main, Sector 2, HSR Layout, Bengaluru - 560102",
+      "phone": "080-5550-0013",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD014",
+      "name": "Peenya Auto Point (Demo) - Yeshwanthpur",
+      "city": "Bengaluru",
+      "pincode": "560022",
+      "address": "Tumkur Road, Yeshwanthpur, Bengaluru - 560022",
+      "phone": "080-5550-0014",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD015",
+      "name": "Bannerghatta Motors (Demo) - BTM",
+      "city": "Bengaluru",
+      "pincode": "560076",
+      "address": "Bannerghatta Road, BTM Layout, Bengaluru - 560076",
+      "phone": "080-5550-0015",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD016",
+      "name": "Coromandel Motors (Demo) - Guindy",
+      "city": "Chennai",
+      "pincode": "600032",
+      "address": "Mount Road, Guindy, Chennai - 600032",
+      "phone": "044-5550-0016",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD017",
+      "name": "OMR Auto Plaza (Demo) - Perungudi",
+      "city": "Chennai",
+      "pincode": "600096",
+      "address": "Old Mahabalipuram Road, Perungudi, Chennai - 600096",
+      "phone": "044-5550-0017",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD018",
+      "name": "Anna Nagar Wheels (Demo) - Anna Nagar",
+      "city": "Chennai",
+      "pincode": "600040",
+      "address": "2nd Avenue, Anna Nagar, Chennai - 600040",
+      "phone": "044-5550-0018",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD019",
+      "name": "Deccan Plateau Motors (Demo) - Madhapur",
+      "city": "Hyderabad",
+      "pincode": "500081",
+      "address": "Hitech City Road, Madhapur, Hyderabad - 500081",
+      "phone": "040-5550-0019",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD020",
+      "name": "Charminar Auto (Demo) - Secunderabad",
+      "city": "Hyderabad",
+      "pincode": "500003",
+      "address": "SP Road, Secunderabad - 500003",
+      "phone": "040-5550-0020",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD021",
+      "name": "LB Nagar Motors (Demo) - LB Nagar",
+      "city": "Hyderabad",
+      "pincode": "500074",
+      "address": "Vijayawada Highway, LB Nagar, Hyderabad - 500074",
+      "phone": "040-5550-0021",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD022",
+      "name": "Gachibowli Drive (Demo) - Gachibowli",
+      "city": "Hyderabad",
+      "pincode": "500032",
+      "address": "Old Mumbai Highway, Gachibowli, Hyderabad - 500032",
+      "phone": "040-5550-0022",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD023",
+      "name": "Bengal Motors (Demo) - Salt Lake",
+      "city": "Kolkata",
+      "pincode": "700091",
+      "address": "Sector V, Salt Lake, Kolkata - 700091",
+      "phone": "033-5550-0023",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD024",
+      "name": "EM Bypass Auto (Demo) - Kasba",
+      "city": "Kolkata",
+      "pincode": "700107",
+      "address": "EM Bypass, Kasba, Kolkata - 700107",
+      "phone": "033-5550-0024",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD025",
+      "name": "New Town Wheels (Demo) - New Town",
+      "city": "Kolkata",
+      "pincode": "700156",
+      "address": "Action Area 1, New Town, Kolkata - 700156",
+      "phone": "033-5550-0025",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD026",
+      "name": "Sabarmati Motors (Demo) - Bodakdev",
+      "city": "Ahmedabad",
+      "pincode": "380054",
+      "address": "SG Highway, Bodakdev, Ahmedabad - 380054",
+      "phone": "079-5550-0026",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD027",
+      "name": "Navrangpura Auto (Demo) - Navrangpura",
+      "city": "Ahmedabad",
+      "pincode": "380009",
+      "address": "CG Road, Navrangpura, Ahmedabad - 380009",
+      "phone": "079-5550-0027",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD028",
+      "name": "Gandhinagar Highway Motors (Demo) - Chandkheda",
+      "city": "Ahmedabad",
+      "pincode": "382421",
+      "address": "Visat-Gandhinagar Highway, Chandkheda - 382421",
+      "phone": "079-5550-0028",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD029",
+      "name": "Hadapsar Motors (Demo) - Hadapsar",
+      "city": "Pune",
+      "pincode": "411028",
+      "address": "Solapur Road, Hadapsar, Pune - 411028",
+      "phone": "020-5550-0029",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
+      "dealer_id": "TD030",
+      "name": "ECR Motors (Demo) - Sholinganallur",
+      "city": "Chennai",
+      "pincode": "600119",
+      "address": "OMR-ECR Link Road, Sholinganallur, Chennai - 600119",
+      "phone": "044-5550-0030",
+      "ev_ready": "no",
+      "open_hours": "10:00-19:00"
+    }
+  ]
+}

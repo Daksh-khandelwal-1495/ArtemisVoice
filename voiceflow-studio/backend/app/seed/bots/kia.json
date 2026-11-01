@@ -1,0 +1,878 @@
+{
+  "slug": "kia",
+  "name": "Kia Service Booking",
+  "description": "Books Kia service appointments with registration, model validation, odometer, service type, workshop lookup, slot and pickup.",
+  "industry": "Automotive",
+  "avatar_color": "#05141F",
+  "language": "en-IN",
+  "status": "published",
+  "config": {
+    "stt": {
+      "provider": "deepgram",
+      "model": "nova-3",
+      "language": "en-IN",
+      "keywords": [
+        "Kia",
+        "Seltos",
+        "Sonet",
+        "Carens",
+        "Clavis",
+        "Carnival",
+        "Syros",
+        "EV6",
+        "EV9",
+        "HTX",
+        "GTX",
+        "odometer",
+        "pickup",
+        "warranty"
+      ],
+      "options": {}
+    },
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "temperature": 0.4,
+      "max_tokens": 300,
+      "base_url": null,
+      "options": {}
+    },
+    "tts": {
+      "provider": "soniox",
+      "model": "tts-rt-v2",
+      "voice": "Bryce",
+      "language": "en",
+      "speed": 1.0,
+      "sample_rate": 24000,
+      "options": {}
+    },
+    "vad": {
+      "stop_secs": 0.6,
+      "start_secs": 0.2,
+      "confidence": 0.7
+    },
+    "behavior": {
+      "allow_interruptions": true,
+      "idle_timeout_secs": 15,
+      "idle_max_nudges": 2,
+      "max_call_duration_secs": 900,
+      "greeting": "Hello, and welcome to Kia Service. I'm Arjun. Would you like to book a service appointment for your Kia?",
+      "fallback_message": "Sorry, I'm having a little trouble right now. Let me connect you to a colleague who can help.",
+      "record_transcript": true,
+      "mask_sensitive_in_logs": true
+    }
+  },
+  "graph": {
+    "initial_node": "start",
+    "global_prompt": "You are Arjun, a calm and helpful service booking assistant for Kia India authorised workshops. You book service appointments: registration number, model, odometer, service type, preferred workshop, slot and pickup. Accident damage and insurance claims are always handled by the human accident and insurance desk, never by you. Do not diagnose mechanical faults or quote exact repair costs; the service advisor shares an estimate after inspection.\n\nVoice style rules (this is a phone/voice call, not chat):\n- Speak in short, natural sentences. One question at a time. Never use bullet points, emojis, markdown or URLs.\n- Use polite Indian English (\"Sure\", \"No problem\", \"Thank you, ji\" only if the caller uses it). Do not over-apologise.\n- Callers may speak Hinglish or mix languages (e.g. \"haan\", \"nahi\", \"theek hai\", \"kal subah\", \"parso\"). Understand it and reply in simple English, mirroring a few Hindi words only if the caller prefers Hindi.\n- Say numbers the Indian way: \"five lakh\", \"twelve thousand\", \"nine eight two zero...\" for phone numbers digit by digit.\n- Dates: interpret relative dates (\"kal\" = tomorrow, \"parso\" = day after tomorrow, \"next Saturday\") using the current date provided to you, and confirm the actual calendar date back to the caller.\n- If you did not catch something, ask again briefly. If the caller is upset or asks for a human, offer to connect them.\n- Never invent information that is not in your instructions or lookup results. If unsure, say a specialist will confirm.",
+    "variables": {
+      "brand": "Kia"
+    },
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "label": "Greeting",
+        "position": {
+          "x": 80,
+          "y": 360
+        },
+        "task_prompt": "Greet the caller as Arjun from Kia Service and ask how you can help. If they want to book a service, maintenance or repair, move to booking. If they mention an accident, insurance claim or towing, move to the insurance desk. General questions about service cost, intervals or warranty go to the FAQ.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_start_1",
+            "target": "transfer_insurance",
+            "kind": "intent",
+            "condition": "Caller mentions an accident, collision, insurance claim, towing or roadside emergency",
+            "label": "Accident / insurance",
+            "priority": 0
+          },
+          {
+            "id": "t_start_2",
+            "target": "collect_vehicle",
+            "kind": "intent",
+            "condition": "Caller wants to book a service appointment, periodic maintenance or repair",
+            "label": "Book service",
+            "priority": 0
+          },
+          {
+            "id": "t_start_3",
+            "target": "faq",
+            "kind": "intent",
+            "condition": "Caller asks a general question about service intervals, costs, warranty or extended warranty",
+            "label": "Has questions",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 8,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "faq",
+        "type": "conversation",
+        "label": "Service FAQ",
+        "position": {
+          "x": 380,
+          "y": 0
+        },
+        "task_prompt": "Answer briefly using only these facts. Periodic service is recommended every 10,000 km or 1 year, whichever is earlier (EV6 and EV9 every 20,000 km or 1 year). Standard warranty is 3 years or 1 lakh km; extended warranty can be bought at the workshop. Exact service cost depends on model and parts, and the service advisor will share an estimate before work starts. Then offer to book a service appointment.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_faq_4",
+            "target": "collect_vehicle",
+            "kind": "intent",
+            "condition": "Caller wants to book a service appointment",
+            "label": "Book service",
+            "priority": 0
+          },
+          {
+            "id": "t_faq_5",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller has no further questions",
+            "label": "Done",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_vehicle",
+        "type": "collect",
+        "label": "Registration number",
+        "position": {
+          "x": 380,
+          "y": 360
+        },
+        "task_prompt": "Ask for the vehicle registration number, for example MH 12 AB 1234. Read it back letter by letter and digit by digit to confirm.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "vehicle_reg",
+            "label": "Registration number",
+            "type": "vehicle_reg",
+            "required": true,
+            "description": "Indian vehicle registration number like MH12AB1234 (no spaces)",
+            "validation": {},
+            "confirm": true,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "KA05MN4321"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_vehicle_6",
+            "target": "collect_model",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Reg captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_model",
+        "type": "collect",
+        "label": "Car model",
+        "position": {
+          "x": 680,
+          "y": 360
+        },
+        "task_prompt": "Ask which Kia model this is (Seltos, Sonet, Carens, Carens Clavis, Carnival, Syros, EV6 or EV9). Variant is optional.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "vehicle_model",
+            "label": "Model",
+            "type": "string",
+            "required": true,
+            "description": "Kia model name, e.g. Seltos",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "Seltos"
+          },
+          {
+            "name": "vehicle_variant",
+            "label": "Variant",
+            "type": "string",
+            "required": false,
+            "description": "Variant like HTX or GTX+, if the caller knows it",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 1
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_model_7",
+            "target": "lookup_model",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Model captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "lookup_model",
+        "type": "lookup",
+        "label": "Validate model",
+        "position": {
+          "x": 980,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_lookup_model_8",
+            "target": "collect_service",
+            "kind": "expression",
+            "condition": "model_info_found == True",
+            "label": "Valid Kia model",
+            "priority": 0
+          },
+          {
+            "id": "t_lookup_model_9",
+            "target": "model_not_found",
+            "kind": "fallback",
+            "condition": "",
+            "label": "Unknown model",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": null,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "model_not_found"
+        },
+        "lookup": {
+          "dataset": "kia_models",
+          "match": {
+            "model": "vehicle_model"
+          },
+          "match_mode": "icontains",
+          "save_as": "model_info",
+          "single": true,
+          "limit": 1
+        }
+      },
+      {
+        "id": "model_not_found",
+        "type": "conversation",
+        "label": "Model not recognised",
+        "position": {
+          "x": 1280,
+          "y": 720
+        },
+        "task_prompt": "Politely say you could not find '{{vehicle_model}}' in the Kia range serviced at our workshops. Mention the valid models (Seltos, Sonet, Carens, Carens Clavis, Carnival, Syros, EV6, EV9) and ask them to repeat the model name. If it is not a Kia vehicle, explain we only service Kia cars and offer to connect them to an advisor.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_model_not_found_10",
+            "target": "collect_model",
+            "kind": "intent",
+            "condition": "Caller wants to restate or correct the model name",
+            "label": "Retry model",
+            "priority": 0
+          },
+          {
+            "id": "t_model_not_found_11",
+            "target": "transfer_agent",
+            "kind": "intent",
+            "condition": "Vehicle is not a Kia, or caller wants to speak to a service advisor",
+            "label": "Advisor",
+            "priority": 0
+          },
+          {
+            "id": "t_model_not_found_12",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller wants to end the call",
+            "label": "End",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_service",
+        "type": "collect",
+        "label": "Service details",
+        "position": {
+          "x": 1280,
+          "y": 360
+        },
+        "task_prompt": "Your {{vehicle_model}} details: {{model_info}}. Ask the current odometer reading in kilometres and the type of service: periodic maintenance, repair (a specific problem), accident damage, or warranty work. If repair or warranty, ask them to describe the issue in a sentence. Issue description is optional for periodic service.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "odometer_km",
+            "label": "Odometer (km)",
+            "type": "integer",
+            "required": true,
+            "description": "Current odometer reading in km",
+            "validation": {
+              "min": 0,
+              "max": 500000
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "23500"
+          },
+          {
+            "name": "service_type",
+            "label": "Service type",
+            "type": "enum",
+            "required": true,
+            "description": "periodic = scheduled maintenance; repair = specific problem; accident = collision damage/insurance; warranty = warranty claim",
+            "validation": {
+              "options": [
+                "periodic",
+                "repair",
+                "accident",
+                "warranty"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "issue_description",
+            "label": "Issue description",
+            "type": "string",
+            "required": false,
+            "description": "Short description of the problem, e.g. 'AC not cooling', 'brake noise'",
+            "validation": {
+              "max": 300
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 1
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_service_13",
+            "target": "transfer_insurance",
+            "kind": "expression",
+            "condition": "service_type == 'accident'",
+            "label": "Accident -> insurance",
+            "priority": 0
+          },
+          {
+            "id": "t_collect_service_14",
+            "target": "collect_city",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Service captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_city",
+        "type": "collect",
+        "label": "City",
+        "position": {
+          "x": 1580,
+          "y": 360
+        },
+        "task_prompt": "Ask which city they would like to get the car serviced in.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "city",
+            "label": "City",
+            "type": "string",
+            "required": true,
+            "description": "City for the service visit",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "Bengaluru"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_city_15",
+            "target": "lookup_centers",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "City captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "lookup_centers",
+        "type": "lookup",
+        "label": "Find service centres",
+        "position": {
+          "x": 1880,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_lookup_centers_16",
+            "target": "choose_slot",
+            "kind": "expression",
+            "condition": "service_centers_found == True",
+            "label": "Centres found",
+            "priority": 0
+          },
+          {
+            "id": "t_lookup_centers_17",
+            "target": "no_center",
+            "kind": "fallback",
+            "condition": "",
+            "label": "None found",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": null,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "no_center"
+        },
+        "lookup": {
+          "dataset": "kia_service_centers",
+          "match": {
+            "city": "city"
+          },
+          "match_mode": "icontains",
+          "save_as": "service_centers",
+          "single": false,
+          "limit": 4
+        }
+      },
+      {
+        "id": "no_center",
+        "type": "conversation",
+        "label": "No centre fallback",
+        "position": {
+          "x": 2180,
+          "y": 720
+        },
+        "task_prompt": "Apologise that no Kia service centre is listed for {{city}} in our system. Offer to check a nearby city, or connect them to a service advisor who can arrange a mobile service or doorstep pickup.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_no_center_18",
+            "target": "collect_city",
+            "kind": "intent",
+            "condition": "Caller wants to try another nearby city",
+            "label": "Other city",
+            "priority": 0
+          },
+          {
+            "id": "t_no_center_19",
+            "target": "transfer_agent",
+            "kind": "intent",
+            "condition": "Caller wants to speak to a service advisor",
+            "label": "Advisor",
+            "priority": 0
+          },
+          {
+            "id": "t_no_center_20",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller does not want to continue",
+            "label": "End",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "choose_slot",
+        "type": "collect",
+        "label": "Centre & slot",
+        "position": {
+          "x": 2180,
+          "y": 180
+        },
+        "task_prompt": "Service centres in {{city}}: {{service_centers}}. Offer up to three by short name and area and ask which one they prefer, then the date and a time slot. Workshops open 9 am to 6:30 pm, Monday to Saturday. Dates must be in the future.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "service_center",
+            "label": "Service centre",
+            "type": "string",
+            "required": true,
+            "description": "Exact centre name chosen from the list",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "service_date",
+            "label": "Service date",
+            "type": "date",
+            "required": true,
+            "description": "Appointment date, after today",
+            "validation": {
+              "future_only": true
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "time_slot",
+            "label": "Time slot",
+            "type": "enum",
+            "required": true,
+            "description": "Drop-off time window",
+            "validation": {
+              "options": [
+                "9-11 am",
+                "11 am-1 pm",
+                "2-4 pm",
+                "4-6 pm"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_choose_slot_21",
+            "target": "collect_pickup",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Slot chosen",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_pickup",
+        "type": "collect",
+        "label": "Pickup & drop",
+        "position": {
+          "x": 2480,
+          "y": 180
+        },
+        "task_prompt": "Ask if they would like free pickup and drop of the car from home or office (available within city limits). If yes, ask for the pickup address with a landmark.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "pickup_required",
+            "label": "Pickup required",
+            "type": "boolean",
+            "required": true,
+            "description": "true if the caller wants pickup and drop",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "pickup_address",
+            "label": "Pickup address",
+            "type": "string",
+            "required": false,
+            "description": "Only if pickup_required is true: full pickup address with landmark",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 2
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_pickup_22",
+            "target": "collect_contact",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Pickup captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "skip",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_contact",
+        "type": "collect",
+        "label": "Name & phone",
+        "position": {
+          "x": 2780,
+          "y": 180
+        },
+        "task_prompt": "Ask for the owner's name and mobile number for appointment updates. Read the number back digit by digit.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "customer_name",
+            "label": "Name",
+            "type": "string",
+            "required": true,
+            "description": "Vehicle owner's full name",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "phone",
+            "label": "Mobile number",
+            "type": "phone",
+            "required": true,
+            "description": "10-digit Indian mobile number",
+            "validation": {},
+            "confirm": true,
+            "sensitive": true,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_contact_23",
+            "target": "confirm_booking",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Contact captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "confirm_booking",
+        "type": "conversation",
+        "label": "Confirm summary",
+        "position": {
+          "x": 3080,
+          "y": 180
+        },
+        "task_prompt": "Summarise briefly: {{service_type}} service for {{vehicle_model}} {{vehicle_reg}} at {{service_center}} on {{service_date}}, {{time_slot}}; pickup: {{pickup_required}}. Contact {{customer_name}}, {{phone}}. Ask if all is correct.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_confirm_booking_24",
+            "target": "end_booked",
+            "kind": "intent",
+            "condition": "Caller confirms the details are correct",
+            "label": "Confirmed",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_25",
+            "target": "choose_slot",
+            "kind": "intent",
+            "condition": "Caller wants to change centre, date or time",
+            "label": "Change slot",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_26",
+            "target": "collect_pickup",
+            "kind": "intent",
+            "condition": "Caller wants to change pickup preference or address",
+            "label": "Change pickup",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_27",
+            "target": "collect_contact",
+            "kind": "intent",
+            "condition": "Caller wants to correct name or phone",
+            "label": "Fix contact",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 8,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "transfer_insurance",
+        "type": "transfer",
+        "label": "Insurance & accident desk",
+        "position": {
+          "x": 1580,
+          "y": -180
+        },
+        "task_prompt": "",
+        "say_on_enter": "I'm sorry to hear about that. I hope everyone is safe. Let me connect you to our accident and insurance desk right away.",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "transfer_number": "+91-80-5551-9111"
+      },
+      {
+        "id": "transfer_agent",
+        "type": "transfer",
+        "label": "Service advisor",
+        "position": {
+          "x": 2480,
+          "y": 900
+        },
+        "task_prompt": "",
+        "say_on_enter": "Sure, connecting you to a Kia service advisor now. Please hold.",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "transfer_number": "+91-80-5551-0000"
+      },
+      {
+        "id": "end_booked",
+        "type": "end",
+        "label": "Booked",
+        "position": {
+          "x": 3380,
+          "y": 180
+        },
+        "task_prompt": "",
+        "say_on_enter": "Your service appointment is confirmed. You'll get an SMS with the details and the advisor will call a day before. Thank you for choosing Kia!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "completed"
+      },
+      {
+        "id": "end_no_booking",
+        "type": "end",
+        "label": "No booking",
+        "position": {
+          "x": 1280,
+          "y": 1080
+        },
+        "task_prompt": "",
+        "say_on_enter": "Alright, thank you for calling Kia Service. Drive safe and have a good day!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "not_interested"
+      }
+    ]
+  }
+}

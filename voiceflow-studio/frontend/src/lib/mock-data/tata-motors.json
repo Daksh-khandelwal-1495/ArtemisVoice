@@ -1,0 +1,746 @@
+{
+  "slug": "tata-motors",
+  "name": "Tata Motors Test Drive",
+  "description": "Books free test drives: model interest, city & pincode, nearest dealer lookup, date/slot and contact details.",
+  "industry": "Automotive",
+  "avatar_color": "#1C69D3",
+  "language": "en-IN",
+  "status": "published",
+  "config": {
+    "stt": {
+      "provider": "deepgram",
+      "model": "nova-3",
+      "language": "en-IN",
+      "keywords": [
+        "Tata",
+        "Tata Motors",
+        "Nexon",
+        "Nexon EV",
+        "Punch",
+        "Punch EV",
+        "Harrier",
+        "Safari",
+        "Curvv",
+        "Tiago",
+        "Altroz",
+        "Tigor",
+        "EV",
+        "test drive",
+        "pincode"
+      ],
+      "options": {}
+    },
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-4.1-mini",
+      "temperature": 0.4,
+      "max_tokens": 300,
+      "base_url": null,
+      "options": {}
+    },
+    "tts": {
+      "provider": "soniox",
+      "model": "tts-rt-v2",
+      "voice": "Maya",
+      "language": "en",
+      "speed": 1.0,
+      "sample_rate": 24000,
+      "options": {}
+    },
+    "vad": {
+      "stop_secs": 0.6,
+      "start_secs": 0.2,
+      "confidence": 0.7
+    },
+    "behavior": {
+      "allow_interruptions": true,
+      "idle_timeout_secs": 15,
+      "idle_max_nudges": 2,
+      "max_call_duration_secs": 900,
+      "greeting": "Namaste! Thank you for calling Tata Motors. I'm Riya. Are you looking to book a test drive today?",
+      "fallback_message": "Sorry, I'm having a little trouble right now. Let me connect you to a colleague who can help.",
+      "record_transcript": true,
+      "mask_sensitive_in_logs": true
+    }
+  },
+  "graph": {
+    "initial_node": "start",
+    "global_prompt": "You are Riya, a friendly and efficient test-drive booking assistant for Tata Motors passenger vehicles in India. You help callers choose a model, find the nearest authorised dealer and book a free test drive. Tata's current range: Tiago, Tigor, Altroz, Punch, Nexon, Curvv, Harrier and Safari, plus electric Punch EV, Nexon EV, Tiago EV and Curvv EV. Be enthusiastic but never pushy. Do not quote final on-road prices, discounts or EMIs; the dealer confirms those.\n\nVoice style rules (this is a phone/voice call, not chat):\n- Speak in short, natural sentences. One question at a time. Never use bullet points, emojis, markdown or URLs.\n- Use polite Indian English (\"Sure\", \"No problem\", \"Thank you, ji\" only if the caller uses it). Do not over-apologise.\n- Callers may speak Hinglish or mix languages (e.g. \"haan\", \"nahi\", \"theek hai\", \"kal subah\", \"parso\"). Understand it and reply in simple English, mirroring a few Hindi words only if the caller prefers Hindi.\n- Say numbers the Indian way: \"five lakh\", \"twelve thousand\", \"nine eight two zero...\" for phone numbers digit by digit.\n- Dates: interpret relative dates (\"kal\" = tomorrow, \"parso\" = day after tomorrow, \"next Saturday\") using the current date provided to you, and confirm the actual calendar date back to the caller.\n- If you did not catch something, ask again briefly. If the caller is upset or asks for a human, offer to connect them.\n- Never invent information that is not in your instructions or lookup results. If unsure, say a specialist will confirm.",
+    "variables": {
+      "brand": "Tata Motors",
+      "price_guide": "Tiago about 5 lakh, Tigor about 6 lakh, Altroz about 6.9 lakh, Punch about 6 lakh, Punch EV about 10 lakh, Nexon about 8 lakh, Nexon EV about 12.5 lakh, Curvv about 10 lakh, Harrier about 15 lakh, Safari about 15.5 lakh",
+      "ev_range_guide": "Punch EV up to about 420 km, Nexon EV up to about 490 km, Curvv EV up to about 500 km, depending on battery pack"
+    },
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "label": "Greeting",
+        "position": {
+          "x": 80,
+          "y": 360
+        },
+        "task_prompt": "Greet the caller warmly, introduce yourself as Riya from Tata Motors, and ask how you can help today. If they want a test drive or are interested in a car, move to booking. If they ask about prices, EV range, mileage, variants or features first, move to the FAQ.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_start_1",
+            "target": "collect_model",
+            "kind": "intent",
+            "condition": "Caller wants to book a test drive or shows interest in a Tata car",
+            "label": "Wants test drive",
+            "priority": 0
+          },
+          {
+            "id": "t_start_2",
+            "target": "faq",
+            "kind": "intent",
+            "condition": "Caller asks about price, on-road cost, EV range, charging, mileage, safety rating, variants or features",
+            "label": "Has questions",
+            "priority": 0
+          },
+          {
+            "id": "t_start_3",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller is not interested or called by mistake",
+            "label": "Not interested",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 8,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "faq",
+        "type": "conversation",
+        "label": "Product FAQ",
+        "position": {
+          "x": 380,
+          "y": 0
+        },
+        "task_prompt": "Answer the caller's questions about Tata cars using ONLY the facts below. Keep answers to two short sentences and always quote prices as indicative ex-showroom starting prices that vary by city and variant.\nIndicative ex-showroom starting prices: {{price_guide}}\nIndicative EV range (MIDC claimed, real world is lower): {{ev_range_guide}}\nSafety: Nexon, Punch, Harrier, Safari, Curvv and Altroz carry 5-star safety ratings in recent crash tests.\nIf asked about exact on-road price, discounts, finance EMIs or exchange value, say the dealer will share the exact quote during the test drive. After answering, ask if they would like to book a free test drive.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_faq_4",
+            "target": "collect_model",
+            "kind": "intent",
+            "condition": "Caller agrees to book a test drive",
+            "label": "Book test drive",
+            "priority": 0
+          },
+          {
+            "id": "t_faq_5",
+            "target": "transfer_agent",
+            "kind": "intent",
+            "condition": "Caller wants detailed pricing, finance or exchange discussion with a sales executive now",
+            "label": "Talk to sales",
+            "priority": 0
+          },
+          {
+            "id": "t_faq_6",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller has no more questions and does not want a test drive now",
+            "label": "Done",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_model",
+        "type": "collect",
+        "label": "Model interest",
+        "position": {
+          "x": 380,
+          "y": 360
+        },
+        "task_prompt": "Ask which Tata model they would like to test drive. Valid models: Nexon, Nexon EV, Punch, Punch EV, Harrier, Safari, Curvv, Tiago, Altroz, Tigor. Map casual mentions (e.g. 'Nexon electric' -> Nexon EV, 'Curv' -> Curvv). If unsure between two, ask. Optionally ask fuel or powertrain preference if the model offers several.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "car_model",
+            "label": "Car model",
+            "type": "enum",
+            "required": true,
+            "description": "Tata model to test drive",
+            "validation": {
+              "options": [
+                "Nexon",
+                "Nexon EV",
+                "Punch",
+                "Punch EV",
+                "Harrier",
+                "Safari",
+                "Curvv",
+                "Tiago",
+                "Altroz",
+                "Tigor"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "Nexon EV"
+          },
+          {
+            "name": "fuel_preference",
+            "label": "Fuel preference",
+            "type": "enum",
+            "required": false,
+            "description": "Preferred powertrain if the model has options",
+            "validation": {
+              "options": [
+                "petrol",
+                "diesel",
+                "cng",
+                "electric"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 1
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_model_7",
+            "target": "collect_location",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Model captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_location",
+        "type": "collect",
+        "label": "City & pincode",
+        "position": {
+          "x": 680,
+          "y": 360
+        },
+        "task_prompt": "Ask for the city and 6-digit pincode where they would like the test drive, so you can find the nearest dealer.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "city",
+            "label": "City",
+            "type": "string",
+            "required": true,
+            "description": "City for the test drive, e.g. Mumbai, Pune, Bengaluru",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "Pune"
+          },
+          {
+            "name": "pincode",
+            "label": "Pincode",
+            "type": "pincode",
+            "required": true,
+            "description": "6-digit area pincode",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "411045"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_location_8",
+            "target": "lookup_dealers",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Location captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "lookup_dealers",
+        "type": "lookup",
+        "label": "Find dealers",
+        "position": {
+          "x": 980,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_lookup_dealers_9",
+            "target": "choose_dealer",
+            "kind": "expression",
+            "condition": "dealers_found == True",
+            "label": "Dealers found",
+            "priority": 0
+          },
+          {
+            "id": "t_lookup_dealers_10",
+            "target": "no_dealer",
+            "kind": "fallback",
+            "condition": "",
+            "label": "No dealer",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": null,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "no_dealer"
+        },
+        "lookup": {
+          "dataset": "tata_dealers",
+          "match": {
+            "city": "city"
+          },
+          "match_mode": "icontains",
+          "save_as": "dealers",
+          "single": false,
+          "limit": 4
+        }
+      },
+      {
+        "id": "choose_dealer",
+        "type": "collect",
+        "label": "Choose dealer",
+        "position": {
+          "x": 1280,
+          "y": 180
+        },
+        "task_prompt": "These Tata dealers are available in {{city}}: {{dealers}}. Read out at most three by short name and area (prefer the one whose pincode is closest to {{pincode}}) and ask which one is convenient. For EV models prefer dealers marked ev_ready.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "dealer_name",
+            "label": "Dealer",
+            "type": "string",
+            "required": true,
+            "description": "Exact dealer name chosen from the list provided",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_choose_dealer_11",
+            "target": "collect_schedule",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Dealer chosen",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "no_dealer"
+        }
+      },
+      {
+        "id": "no_dealer",
+        "type": "conversation",
+        "label": "No dealer fallback",
+        "position": {
+          "x": 1280,
+          "y": 540
+        },
+        "task_prompt": "Apologise that you could not find a Tata dealer listed for {{city}}. Offer two options: try the nearest major city (Mumbai, Pune, Delhi, Bengaluru, Chennai, Hyderabad, Kolkata or Ahmedabad), or arrange a callback from the regional sales team.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_no_dealer_12",
+            "target": "collect_location",
+            "kind": "intent",
+            "condition": "Caller wants to try a different or nearby city",
+            "label": "Try another city",
+            "priority": 0
+          },
+          {
+            "id": "t_no_dealer_13",
+            "target": "collect_callback",
+            "kind": "intent",
+            "condition": "Caller wants a callback from the sales team",
+            "label": "Callback",
+            "priority": 0
+          },
+          {
+            "id": "t_no_dealer_14",
+            "target": "end_no_booking",
+            "kind": "intent",
+            "condition": "Caller does not want to continue",
+            "label": "Decline",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_callback",
+        "type": "collect",
+        "label": "Callback details",
+        "position": {
+          "x": 1580,
+          "y": 720
+        },
+        "task_prompt": "Collect the caller's name, mobile number and a convenient callback time for the regional sales team.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "callback_name",
+            "label": "Name",
+            "type": "string",
+            "required": true,
+            "description": "Caller's full name",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "callback_phone",
+            "label": "Mobile",
+            "type": "phone",
+            "required": true,
+            "description": "10-digit Indian mobile number",
+            "validation": {},
+            "confirm": true,
+            "sensitive": true,
+            "max_retries": 3
+          },
+          {
+            "name": "callback_time",
+            "label": "Preferred callback time",
+            "type": "string",
+            "required": true,
+            "description": "e.g. 'tomorrow 11 am' or 'weekday evenings'",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_callback_15",
+            "target": "end_callback",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Callback booked",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_schedule",
+        "type": "collect",
+        "label": "Date & time slot",
+        "position": {
+          "x": 1580,
+          "y": 180
+        },
+        "task_prompt": "Ask the preferred date for the test drive at {{dealer_name}} and a time slot. Dates must be in the future, within the next 30 days. Slots: morning (10 am to 12 pm), afternoon (12 to 3 pm), evening (3 to 7 pm).",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "preferred_date",
+            "label": "Preferred date",
+            "type": "date",
+            "required": true,
+            "description": "Test drive date, must be after today",
+            "validation": {
+              "future_only": true
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "time_slot",
+            "label": "Time slot",
+            "type": "enum",
+            "required": true,
+            "description": "morning 10-12, afternoon 12-3, evening 3-7",
+            "validation": {
+              "options": [
+                "morning",
+                "afternoon",
+                "evening"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_schedule_16",
+            "target": "collect_contact",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Slot chosen",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_contact",
+        "type": "collect",
+        "label": "Name & phone",
+        "position": {
+          "x": 1880,
+          "y": 180
+        },
+        "task_prompt": "Ask for the caller's full name and mobile number for the booking confirmation SMS. Read the number back digit by digit.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "customer_name",
+            "label": "Full name",
+            "type": "string",
+            "required": true,
+            "description": "Caller's full name",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "Rahul Sharma"
+          },
+          {
+            "name": "phone",
+            "label": "Mobile number",
+            "type": "phone",
+            "required": true,
+            "description": "10-digit Indian mobile number",
+            "validation": {},
+            "confirm": true,
+            "sensitive": true,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_contact_17",
+            "target": "confirm_booking",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Contact captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "confirm_booking",
+        "type": "conversation",
+        "label": "Confirm summary",
+        "position": {
+          "x": 2180,
+          "y": 180
+        },
+        "task_prompt": "Summarise the booking in one or two sentences: {{car_model}} test drive at {{dealer_name}}, {{city}}, on {{preferred_date}} in the {{time_slot}} slot, for {{customer_name}} on {{phone}}. Ask if everything is correct.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_confirm_booking_18",
+            "target": "end_booked",
+            "kind": "intent",
+            "condition": "Caller confirms the details are correct",
+            "label": "Confirmed",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_19",
+            "target": "collect_schedule",
+            "kind": "intent",
+            "condition": "Caller wants to change the date or time slot",
+            "label": "Change slot",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_20",
+            "target": "choose_dealer",
+            "kind": "intent",
+            "condition": "Caller wants a different dealer",
+            "label": "Change dealer",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_21",
+            "target": "collect_model",
+            "kind": "intent",
+            "condition": "Caller wants a different car model",
+            "label": "Change model",
+            "priority": 0
+          },
+          {
+            "id": "t_confirm_booking_22",
+            "target": "collect_contact",
+            "kind": "intent",
+            "condition": "Caller wants to correct name or phone number",
+            "label": "Fix contact",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 8,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "transfer_agent",
+        "type": "transfer",
+        "label": "Sales executive",
+        "position": {
+          "x": 680,
+          "y": -180
+        },
+        "task_prompt": "",
+        "say_on_enter": "Sure, I'm connecting you to a Tata Motors sales executive now. Please stay on the line.",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "transfer_number": "+91-22-5550-0000"
+      },
+      {
+        "id": "end_booked",
+        "type": "end",
+        "label": "Booked",
+        "position": {
+          "x": 2480,
+          "y": 180
+        },
+        "task_prompt": "",
+        "say_on_enter": "Your test drive is booked. You will get an SMS confirmation shortly, and the dealer will call to confirm. Thank you for choosing Tata Motors, have a great day!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "completed"
+      },
+      {
+        "id": "end_callback",
+        "type": "end",
+        "label": "Callback scheduled",
+        "position": {
+          "x": 1880,
+          "y": 720
+        },
+        "task_prompt": "",
+        "say_on_enter": "Done. Our regional sales team will call you at {{callback_time}}. Thank you for your interest in Tata Motors!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "callback_scheduled"
+      },
+      {
+        "id": "end_no_booking",
+        "type": "end",
+        "label": "No booking",
+        "position": {
+          "x": 980,
+          "y": 900
+        },
+        "task_prompt": "",
+        "say_on_enter": "No problem at all. Whenever you're ready, just call us back for a free test drive. Have a nice day!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "not_interested"
+      }
+    ]
+  }
+}

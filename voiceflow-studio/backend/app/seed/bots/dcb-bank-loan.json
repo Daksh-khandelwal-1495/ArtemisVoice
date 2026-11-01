@@ -1,0 +1,864 @@
+{
+  "slug": "dcb-bank-loan",
+  "name": "DCB Bank Loan Pre-qualification",
+  "description": "Consent-first loan pre-qualification: loan type, existing-customer lookup, employment, income, amount, PAN, eligibility rules and callback.",
+  "industry": "Banking & Finance",
+  "avatar_color": "#E2231A",
+  "language": "en-IN",
+  "status": "published",
+  "config": {
+    "stt": {
+      "provider": "deepgram",
+      "model": "nova-3",
+      "language": "en-IN",
+      "keywords": [
+        "DCB",
+        "DCB Bank",
+        "PAN",
+        "LAP",
+        "loan against property",
+        "EMI",
+        "lakh",
+        "crore",
+        "salaried",
+        "self-employed",
+        "OTP"
+      ],
+      "options": {}
+    },
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "temperature": 0.3,
+      "max_tokens": 300,
+      "base_url": null,
+      "options": {}
+    },
+    "tts": {
+      "provider": "soniox",
+      "model": "tts-rt-v2",
+      "voice": "Sofia",
+      "language": "en",
+      "speed": 1.0,
+      "sample_rate": 24000,
+      "options": {}
+    },
+    "vad": {
+      "stop_secs": 0.6,
+      "start_secs": 0.2,
+      "confidence": 0.7
+    },
+    "behavior": {
+      "allow_interruptions": true,
+      "idle_timeout_secs": 15,
+      "idle_max_nudges": 2,
+      "max_call_duration_secs": 900,
+      "greeting": "Hello! This is Kavya calling from DCB Bank. Is this a good time to talk about a quick loan eligibility check?",
+      "fallback_message": "Sorry, I'm having a little trouble right now. Let me connect you to a colleague who can help.",
+      "record_transcript": true,
+      "mask_sensitive_in_logs": true
+    }
+  },
+  "graph": {
+    "initial_node": "start",
+    "global_prompt": "You are Kavya, a courteous and compliant loan pre-qualification assistant for DCB Bank in India. You check preliminary eligibility for personal, home, loan against property and business loans and schedule a loan officer callback. Compliance rules (mandatory): never ask for or accept OTP, PIN, CVV, passwords, net-banking credentials or full card numbers; if the caller starts to share them, stop them immediately. Never promise approval, a sanctioned amount or a final interest rate; everything is indicative and subject to document verification and credit assessment. Do not read back any customer ID or PAN except to confirm what the caller just said. Be neutral and respectful about income; never judge.\n\nVoice style rules (this is a phone/voice call, not chat):\n- Speak in short, natural sentences. One question at a time. Never use bullet points, emojis, markdown or URLs.\n- Use polite Indian English (\"Sure\", \"No problem\", \"Thank you, ji\" only if the caller uses it). Do not over-apologise.\n- Callers may speak Hinglish or mix languages (e.g. \"haan\", \"nahi\", \"theek hai\", \"kal subah\", \"parso\"). Understand it and reply in simple English, mirroring a few Hindi words only if the caller prefers Hindi.\n- Say numbers the Indian way: \"five lakh\", \"twelve thousand\", \"nine eight two zero...\" for phone numbers digit by digit.\n- Dates: interpret relative dates (\"kal\" = tomorrow, \"parso\" = day after tomorrow, \"next Saturday\") using the current date provided to you, and confirm the actual calendar date back to the caller.\n- If you did not catch something, ask again briefly. If the caller is upset or asks for a human, offer to connect them.\n- Never invent information that is not in your instructions or lookup results. If unsure, say a specialist will confirm.",
+    "variables": {
+      "brand": "DCB Bank"
+    },
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "label": "Greeting & compliance",
+        "position": {
+          "x": 80,
+          "y": 360
+        },
+        "task_prompt": "Introduce yourself as Kavya from DCB Bank. Say clearly: 'DCB Bank will never ask for your OTP, PIN, CVV or passwords. Please do not share them with anyone.' Then explain you can check loan pre-eligibility in about three minutes and ask if they would like to proceed.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_start_1",
+            "target": "collect_consent",
+            "kind": "intent",
+            "condition": "Caller is willing to continue or wants to know about loans",
+            "label": "Interested",
+            "priority": 0
+          },
+          {
+            "id": "t_start_2",
+            "target": "end_not_interested",
+            "kind": "intent",
+            "condition": "Caller says they are not interested or busy",
+            "label": "Not interested",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 8,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_consent",
+        "type": "collect",
+        "label": "Consent",
+        "position": {
+          "x": 380,
+          "y": 360
+        },
+        "task_prompt": "Ask for explicit consent: 'To check your eligibility, I'll ask a few questions about your income and PAN. This is only a preliminary check and does not affect your credit score. Shall we proceed?' Capture yes or no.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "consent_given",
+            "label": "Consent to proceed",
+            "type": "boolean",
+            "required": true,
+            "description": "true if caller agrees to the eligibility check, false if they decline",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 2
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_consent_3",
+            "target": "end_not_interested",
+            "kind": "expression",
+            "condition": "consent_given == False",
+            "label": "Declined",
+            "priority": 0
+          },
+          {
+            "id": "t_collect_consent_4",
+            "target": "collect_loan_type",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Consented",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 8,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_loan_type",
+        "type": "collect",
+        "label": "Loan type",
+        "position": {
+          "x": 680,
+          "y": 360
+        },
+        "task_prompt": "Ask which loan they are interested in: personal loan, home loan, loan against property (LAP), or business loan.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "loan_type",
+            "label": "Loan type",
+            "type": "enum",
+            "required": true,
+            "description": "LAP or 'property loan' = loan_against_property; 'ghar ke liye' = home",
+            "validation": {
+              "options": [
+                "personal",
+                "home",
+                "loan_against_property",
+                "business"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_loan_type_5",
+            "target": "lookup_product",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Type captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "lookup_product",
+        "type": "lookup",
+        "label": "Product limits",
+        "position": {
+          "x": 980,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_lookup_product_6",
+            "target": "collect_phone",
+            "kind": "fallback",
+            "condition": "",
+            "label": "Continue",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": null,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "collect_phone"
+        },
+        "lookup": {
+          "dataset": "dcb_loan_products",
+          "match": {
+            "loan_type": "loan_type"
+          },
+          "match_mode": "exact",
+          "save_as": "loan_product",
+          "single": true,
+          "limit": 1
+        }
+      },
+      {
+        "id": "collect_phone",
+        "type": "collect",
+        "label": "Mobile number",
+        "position": {
+          "x": 1280,
+          "y": 360
+        },
+        "task_prompt": "Ask for the mobile number registered with them, so a loan officer can reach them. Read it back digit by digit.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "phone",
+            "label": "Mobile number",
+            "type": "phone",
+            "required": true,
+            "description": "10-digit Indian mobile number",
+            "validation": {},
+            "confirm": true,
+            "sensitive": true,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_phone_7",
+            "target": "lookup_customer",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Phone captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "lookup_customer",
+        "type": "lookup",
+        "label": "Existing customer?",
+        "position": {
+          "x": 1580,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_lookup_customer_8",
+            "target": "existing_customer_welcome",
+            "kind": "expression",
+            "condition": "existing_customer_found == True",
+            "label": "Existing customer",
+            "priority": 0
+          },
+          {
+            "id": "t_lookup_customer_9",
+            "target": "collect_employment",
+            "kind": "fallback",
+            "condition": "",
+            "label": "New customer",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": null,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "collect_employment"
+        },
+        "lookup": {
+          "dataset": "dcb_existing_customers",
+          "match": {
+            "phone": "phone"
+          },
+          "match_mode": "exact",
+          "save_as": "existing_customer",
+          "single": true,
+          "limit": 1
+        }
+      },
+      {
+        "id": "existing_customer_welcome",
+        "type": "conversation",
+        "label": "Existing customer",
+        "position": {
+          "x": 1880,
+          "y": 0
+        },
+        "task_prompt": "This number belongs to an existing DCB Bank customer: {{existing_customer}}. Warmly welcome them back by first name, mention their home branch, and say existing customers may get faster processing. Do NOT read out any IDs. Ask if they'd like to continue with the quick check or speak to their relationship manager.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_existing_customer_welcome_10",
+            "target": "collect_employment",
+            "kind": "intent",
+            "condition": "Caller wants to continue with the eligibility check",
+            "label": "Continue",
+            "priority": 0
+          },
+          {
+            "id": "t_existing_customer_welcome_11",
+            "target": "transfer_agent",
+            "kind": "intent",
+            "condition": "Caller wants to speak to their relationship manager or an agent",
+            "label": "Relationship manager",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "collect_employment"
+        }
+      },
+      {
+        "id": "collect_employment",
+        "type": "collect",
+        "label": "Employment",
+        "position": {
+          "x": 2180,
+          "y": 360
+        },
+        "task_prompt": "Ask whether they are salaried, a self-employed professional (doctor, CA, lawyer etc.), or a self-employed business owner. Optionally ask the employer or business name.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "employment_type",
+            "label": "Employment type",
+            "type": "enum",
+            "required": true,
+            "description": "Nature of employment",
+            "validation": {
+              "options": [
+                "salaried",
+                "self_employed_professional",
+                "self_employed_business"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "employer_name",
+            "label": "Employer / business",
+            "type": "string",
+            "required": false,
+            "description": "Employer or business name",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 1
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_employment_12",
+            "target": "collect_financials",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Employment captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_financials",
+        "type": "collect",
+        "label": "Income & amount",
+        "position": {
+          "x": 2480,
+          "y": 360
+        },
+        "task_prompt": "Ask their net monthly income (take-home, or average monthly profit for business) and the loan amount they need. Product limits for {{loan_type}}: {{loan_product}}. Accept forms like '80 thousand', '15 lakh', '1.2 crore'. If the amount is outside the product range, tell them the range and ask again.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "monthly_income",
+            "label": "Monthly income (INR)",
+            "type": "amount",
+            "required": true,
+            "description": "Net monthly income in rupees",
+            "validation": {
+              "min": 5000,
+              "max": 100000000
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "85000"
+          },
+          {
+            "name": "loan_amount",
+            "label": "Loan amount (INR)",
+            "type": "amount",
+            "required": true,
+            "description": "Requested loan amount in rupees. Personal 50k-40L, Home 5L-10Cr, LAP 5L-5Cr, Business 1L-50L",
+            "validation": {
+              "min": 50000,
+              "max": 100000000
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "1500000"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_financials_13",
+            "target": "collect_city",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Financials captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 12,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_city",
+        "type": "collect",
+        "label": "City",
+        "position": {
+          "x": 2780,
+          "y": 360
+        },
+        "task_prompt": "Ask which city they live in or where the property / business is located.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "city",
+            "label": "City",
+            "type": "string",
+            "required": true,
+            "description": "City of residence or property location",
+            "validation": {},
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3,
+            "example": "Mumbai"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_city_14",
+            "target": "collect_pan",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "City captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_pan",
+        "type": "collect",
+        "label": "PAN",
+        "position": {
+          "x": 3080,
+          "y": 360
+        },
+        "task_prompt": "Ask for their PAN number for the preliminary check. Remind them: 'Please share only your PAN. Never share an OTP or password.' Read the PAN back character by character using phonetics (A for Apple) and get a yes before submitting.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "pan",
+            "label": "PAN",
+            "type": "pan",
+            "required": true,
+            "description": "10-character PAN like ABCDE1234F",
+            "validation": {},
+            "confirm": true,
+            "sensitive": true,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_pan_15",
+            "target": "eligibility_check",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "PAN captured",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 15,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "eligibility_check",
+        "type": "decision",
+        "label": "Eligibility rules",
+        "position": {
+          "x": 3380,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_eligibility_check_16",
+            "target": "not_eligible",
+            "kind": "expression",
+            "condition": "(loan_type == 'personal' and (loan_amount < 50000 or loan_amount > 4000000)) or (loan_type == 'home' and (loan_amount < 500000 or loan_amount > 100000000)) or (loan_type == 'loan_against_property' and (loan_amount < 500000 or loan_amount > 50000000)) or (loan_type == 'business' and (loan_amount < 100000 or loan_amount > 5000000))",
+            "label": "Outside product limits",
+            "priority": 0
+          },
+          {
+            "id": "t_eligibility_check_17",
+            "target": "eligible",
+            "kind": "expression",
+            "condition": "loan_type == 'personal' and monthly_income >= 25000 and loan_amount <= monthly_income * 30",
+            "label": "Personal eligible",
+            "priority": 1
+          },
+          {
+            "id": "t_eligibility_check_18",
+            "target": "eligible",
+            "kind": "expression",
+            "condition": "loan_type == 'home' and monthly_income >= 30000 and loan_amount <= monthly_income * 60",
+            "label": "Home eligible",
+            "priority": 2
+          },
+          {
+            "id": "t_eligibility_check_19",
+            "target": "eligible",
+            "kind": "expression",
+            "condition": "loan_type == 'loan_against_property' and monthly_income >= 35000 and loan_amount <= monthly_income * 80",
+            "label": "LAP eligible",
+            "priority": 3
+          },
+          {
+            "id": "t_eligibility_check_20",
+            "target": "eligible",
+            "kind": "expression",
+            "condition": "loan_type == 'business' and monthly_income >= 40000 and loan_amount <= monthly_income * 24",
+            "label": "Business eligible",
+            "priority": 4
+          },
+          {
+            "id": "t_eligibility_check_21",
+            "target": "not_eligible",
+            "kind": "fallback",
+            "condition": "",
+            "label": "Not eligible",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": null,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "not_eligible"
+        }
+      },
+      {
+        "id": "eligible",
+        "type": "conversation",
+        "label": "Pre-eligible",
+        "position": {
+          "x": 3680,
+          "y": 180
+        },
+        "task_prompt": "Tell them the good news: based on what they shared, they are preliminarily eligible for a {{loan_type}} loan of about {{loan_amount}} rupees. Indicative rate: {{loan_product}} (mention only the interest_rate_range). Make clear this is not a final approval; a loan officer will verify documents. Ask if they'd like to schedule a callback from a loan officer.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_eligible_22",
+            "target": "collect_callback",
+            "kind": "intent",
+            "condition": "Caller wants a callback from a loan officer",
+            "label": "Schedule callback",
+            "priority": 0
+          },
+          {
+            "id": "t_eligible_23",
+            "target": "transfer_agent",
+            "kind": "intent",
+            "condition": "Caller wants to talk to a loan officer right now",
+            "label": "Talk now",
+            "priority": 0
+          },
+          {
+            "id": "t_eligible_24",
+            "target": "end_not_interested",
+            "kind": "intent",
+            "condition": "Caller does not want to proceed now",
+            "label": "Decline",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "goto",
+          "on_failure_target": "collect_callback"
+        }
+      },
+      {
+        "id": "not_eligible",
+        "type": "conversation",
+        "label": "Not eligible",
+        "position": {
+          "x": 3680,
+          "y": 540
+        },
+        "task_prompt": "Gently explain that for the amount requested they don't meet the preliminary criteria for a {{loan_type}} loan (do not mention credit score or say 'rejected'). Product limits: {{loan_product}}. Offer options: try a lower loan amount, or get a callback from a loan advisor who can suggest other products or adding a co-applicant.",
+        "say_on_enter": null,
+        "fields": [],
+        "transitions": [
+          {
+            "id": "t_not_eligible_25",
+            "target": "collect_financials",
+            "kind": "intent",
+            "condition": "Caller wants to try a lower loan amount or correct their income",
+            "label": "Try lower amount",
+            "priority": 0
+          },
+          {
+            "id": "t_not_eligible_26",
+            "target": "collect_callback",
+            "kind": "intent",
+            "condition": "Caller wants a callback from a loan advisor",
+            "label": "Callback",
+            "priority": 0
+          },
+          {
+            "id": "t_not_eligible_27",
+            "target": "end_not_interested",
+            "kind": "intent",
+            "condition": "Caller does not want to continue",
+            "label": "Decline",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "end",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "collect_callback",
+        "type": "collect",
+        "label": "Callback slot",
+        "position": {
+          "x": 3980,
+          "y": 360
+        },
+        "task_prompt": "Ask the preferred date and time window for the loan officer's callback. Callbacks happen Monday to Saturday, 10 am to 7 pm.",
+        "say_on_enter": null,
+        "fields": [
+          {
+            "name": "callback_date",
+            "label": "Callback date",
+            "type": "date",
+            "required": true,
+            "description": "Date for the callback, after today",
+            "validation": {
+              "future_only": true
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          },
+          {
+            "name": "callback_slot",
+            "label": "Callback slot",
+            "type": "enum",
+            "required": true,
+            "description": "Time window",
+            "validation": {
+              "options": [
+                "10 am-1 pm",
+                "1-4 pm",
+                "4-7 pm"
+              ]
+            },
+            "confirm": false,
+            "sensitive": false,
+            "max_retries": 3
+          }
+        ],
+        "transitions": [
+          {
+            "id": "t_collect_callback_28",
+            "target": "end_callback",
+            "kind": "on_complete",
+            "condition": "",
+            "label": "Callback booked",
+            "priority": 0
+          }
+        ],
+        "settings": {
+          "respond_immediately": true,
+          "context_strategy": "append",
+          "allow_interruptions": true,
+          "silence_timeout_secs": 10,
+          "max_attempts": 3,
+          "on_failure": "transfer",
+          "on_failure_target": null
+        }
+      },
+      {
+        "id": "transfer_agent",
+        "type": "transfer",
+        "label": "Loan officer",
+        "position": {
+          "x": 1880,
+          "y": 900
+        },
+        "task_prompt": "",
+        "say_on_enter": "Sure, I'm transferring you to a DCB Bank loan officer. Remember, never share your OTP or passwords with anyone. Please hold.",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "transfer_number": "+91-22-5553-0000"
+      },
+      {
+        "id": "end_callback",
+        "type": "end",
+        "label": "Callback scheduled",
+        "position": {
+          "x": 4280,
+          "y": 360
+        },
+        "task_prompt": "",
+        "say_on_enter": "Done. A DCB Bank loan officer will call you on {{callback_date}} between {{callback_slot}}. Please keep your PAN, address proof and income documents ready. Thank you for banking with DCB!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "callback_scheduled"
+      },
+      {
+        "id": "end_not_interested",
+        "type": "end",
+        "label": "Not interested",
+        "position": {
+          "x": 680,
+          "y": 900
+        },
+        "task_prompt": "",
+        "say_on_enter": "No problem at all. Thank you for your time. If you need a loan in future, just call DCB Bank. Have a good day!",
+        "fields": [],
+        "transitions": [],
+        "settings": {},
+        "end_reason": "not_interested"
+      }
+    ]
+  }
+}

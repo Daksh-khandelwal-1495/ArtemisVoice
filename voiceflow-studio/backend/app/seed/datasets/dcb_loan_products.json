@@ -1,0 +1,56 @@
+{
+  "name": "dcb_loan_products",
+  "description": "Demo DCB Bank loan product grid (indicative limits and rates only, not an offer).",
+  "columns": [
+    "loan_type",
+    "display_name",
+    "min_amount",
+    "max_amount",
+    "min_income",
+    "max_income_multiple",
+    "interest_rate_range",
+    "max_tenure_years"
+  ],
+  "rows": [
+    {
+      "loan_type": "personal",
+      "display_name": "Personal Loan",
+      "min_amount": "50000",
+      "max_amount": "4000000",
+      "min_income": "25000",
+      "max_income_multiple": "30",
+      "interest_rate_range": "12.5% - 21% p.a. (indicative)",
+      "max_tenure_years": "5"
+    },
+    {
+      "loan_type": "home",
+      "display_name": "Home Loan",
+      "min_amount": "500000",
+      "max_amount": "100000000",
+      "min_income": "30000",
+      "max_income_multiple": "60",
+      "interest_rate_range": "8.75% - 11.5% p.a. (indicative)",
+      "max_tenure_years": "30"
+    },
+    {
+      "loan_type": "loan_against_property",
+      "display_name": "Loan Against Property",
+      "min_amount": "500000",
+      "max_amount": "50000000",
+      "min_income": "35000",
+      "max_income_multiple": "80",
+      "interest_rate_range": "9.5% - 13% p.a. (indicative)",
+      "max_tenure_years": "15"
+    },
+    {
+      "loan_type": "business",
+      "display_name": "Business Loan",
+      "min_amount": "100000",
+      "max_amount": "5000000",
+      "min_income": "40000",
+      "max_income_multiple": "24",
+      "interest_rate_range": "14% - 22% p.a. (indicative)",
+      "max_tenure_years": "5"
+    }
+  ]
+}
