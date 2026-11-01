@@ -4,6 +4,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
@@ -62,6 +63,13 @@ def create_app(
     """Create a local-first API instance; no vendor credentials are required for the MVP."""
 
     app = FastAPI(title="ArtemisVoice Evals", version="0.1.0")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     store = SQLiteTraceStore(database_path)
     agent_under_test = agent or DeterministicConfirmationAgent()
     engine = CounterfactualReplayEngine()

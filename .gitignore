@@ -9,4 +9,6 @@ htmlcov/
 artemis_voice.db
 audio/
 reports/
+frontend/node_modules/
+frontend/dist/
 
