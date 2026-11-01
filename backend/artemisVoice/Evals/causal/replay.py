@@ -21,6 +21,10 @@ class Intervention(StrEnum):
 
     CONTROL = "control"
     STT_ORACLE = "stt_oracle"
+    ENDPOINTING_ORACLE = "endpointing_oracle"
+    LLM_ORACLE = "llm_oracle"
+    TOOLS_ORACLE = "tools_oracle"
+    TTS_ORACLE = "tts_oracle"
 
 
 class Verdict(StrEnum):
@@ -84,8 +88,14 @@ class CounterfactualReplayEngine:
         if intervention is Intervention.CONTROL:
             replay_turn = source_turn
             final_state = source.final_database_state
-        elif intervention is Intervention.STT_ORACLE:
-            replay_turn, final_state = self._replace_stt_with_caller_truth(source, turn_index)
+        elif intervention in {
+            Intervention.STT_ORACLE,
+            Intervention.ENDPOINTING_ORACLE,
+            Intervention.LLM_ORACLE,
+            Intervention.TOOLS_ORACLE,
+            Intervention.TTS_ORACLE,
+        }:
+            replay_turn, final_state = self._replace_layer_with_truth(source, turn_index, intervention)
         else:  # pragma: no cover - keeps future enum additions deliberately explicit.
             raise TraceContractError(f"unsupported intervention: {intervention}")
 
@@ -96,6 +106,7 @@ class CounterfactualReplayEngine:
             seed=source.seed,
             valid_caller_run=source.valid_caller_run,
             expected_database_state=source.expected_database_state,
+            expected_spoken_text=source.expected_spoken_text,
             final_database_state=final_state,
             turns=[replay_turn],
         )
@@ -146,12 +157,12 @@ class CounterfactualReplayEngine:
         return ArmResult(
             intervention=intervention,
             trials=trials,
-            pass_count=sum(item.final_database_state == item.expected_database_state for item in replayed),
+            pass_count=sum(item.is_successful() for item in replayed),
             replay_run_ids=[item.id for item in replayed],
         )
 
-    def _replace_stt_with_caller_truth(
-        self, source: RunTrace, turn_index: int
+    def _replace_layer_with_truth(
+        self, source: RunTrace, turn_index: int, intervention: Intervention
     ) -> tuple[TurnTrace, dict[str, str]]:
         """Swap only STT evidence, then recompute the deterministic downstream layers."""
 
@@ -161,11 +172,13 @@ class CounterfactualReplayEngine:
         true_code = source.expected_database_state["confirmation_code"]
         repaired_layers = []
         for layer in source_turn.layers:
-            if layer.layer is Layer.STT:
+            if layer.layer is Layer.ENDPOINTING and intervention is Intervention.ENDPOINTING_ORACLE:
+                repaired_layers.append(layer.model_copy(update={"output": {**layer.output, "heard_code": true_code}}))
+            elif layer.layer is Layer.STT and intervention in {Intervention.STT_ORACLE, Intervention.ENDPOINTING_ORACLE}:
                 repaired_layers.append(
                     layer.model_copy(update={"output": {"final_hypothesis": true_text, "confidence": 1.0}})
                 )
-            elif layer.layer is Layer.LLM:
+            elif layer.layer is Layer.LLM and intervention in {Intervention.STT_ORACLE, Intervention.ENDPOINTING_ORACLE, Intervention.LLM_ORACLE}:
                 repaired_layers.append(
                     layer.model_copy(
                         update={
@@ -174,7 +187,7 @@ class CounterfactualReplayEngine:
                         }
                     )
                 )
-            elif layer.layer is Layer.TOOLS:
+            elif layer.layer is Layer.TOOLS and intervention is not Intervention.TTS_ORACLE:
                 repaired_layers.append(
                     layer.model_copy(
                         update={
@@ -191,7 +204,7 @@ class CounterfactualReplayEngine:
             else:
                 repaired_layers.append(layer)
 
-        repaired_state = dict(source.expected_database_state)
+        repaired_state = source.final_database_state if intervention is Intervention.TTS_ORACLE else dict(source.expected_database_state)
         repaired_turn = source_turn.model_copy(
             update={
                 "database_state_after": repaired_state,

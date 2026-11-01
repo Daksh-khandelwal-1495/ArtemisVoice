@@ -15,6 +15,10 @@ class Scenario(BaseModel):
     expected_database_state: dict[str, str]
     seed: int = Field(ge=0)
     forced_stt_confusion: str | None = None
+    forced_endpointing_code: str | None = None
+    forced_llm_code: str | None = None
+    forced_tool_code: str | None = None
+    forced_tts_code: str | None = None
     caller_valid: bool = True
     caller_addendum: str | None = None
     mutation_history: list[str] = Field(default_factory=list)

@@ -64,6 +64,24 @@ def test_seeded_stt_confusion_is_visible_in_trace() -> None:
     assert stt.output["final_hypothesis"].endswith("P8Q2.")
 
 
+@pytest.mark.parametrize(
+    ("fault", "expected_layer"),
+    [
+        ("forced_endpointing_code", Layer.ENDPOINTING),
+        ("forced_llm_code", Layer.LLM),
+        ("forced_tool_code", Layer.TOOLS),
+        ("forced_tts_code", Layer.TTS),
+    ],
+)
+def test_mock_pipeline_seeds_each_non_stt_layer_fault(fault: str, expected_layer: Layer) -> None:
+    scenario = load_scenario("healthy_confirmation.json").model_copy(update={fault: "P8Q2"})
+    trace = DeterministicConfirmationAgent().run(scenario)
+
+    assert not trace.is_successful()
+    layer = next(item for item in trace.turns[0].layers if item.layer is expected_layer)
+    assert "P8Q2" in str(layer.output)
+
+
 def test_trace_rejects_missing_pipeline_layer() -> None:
     scenario = load_scenario("healthy_confirmation.json")
     trace = DeterministicConfirmationAgent().run(scenario)

@@ -37,14 +37,18 @@ class DeterministicConfirmationAgent:
         started = datetime.now(UTC)
         before = {"customer_name": scenario.caller_name, "confirmation_code": ""}
         caller_text = scenario.caller_text()
-        transcript_code = scenario.confirmation_code
+        endpoint_code = scenario.forced_endpointing_code or scenario.confirmation_code
+        transcript_code = endpoint_code
         boosted = any(
             scenario.confirmation_code.startswith(keyword) for keyword in self._stt_keyword_boosts
         )
         if scenario.forced_stt_confusion and not boosted:
             transcript_code = scenario.forced_stt_confusion
         transcript = caller_text.replace(scenario.confirmation_code, transcript_code)
-        after = {"customer_name": scenario.caller_name, "confirmation_code": transcript_code}
+        llm_code = scenario.forced_llm_code or transcript_code
+        tool_code = scenario.forced_tool_code or llm_code
+        spoken_code = scenario.forced_tts_code or tool_code
+        after = {"customer_name": scenario.caller_name, "confirmation_code": tool_code}
         finished = datetime.now(UTC)
 
         layers = [
@@ -60,7 +64,7 @@ class DeterministicConfirmationAgent:
             LayerTrace(
                 layer=Layer.ENDPOINTING,
                 input={"audio_artifact": "caller"},
-                output={"speech_start_ms": 0, "speech_end_ms": 1000, "interruptions": []},
+                output={"heard_code": endpoint_code, "speech_start_ms": 0, "speech_end_ms": 1000, "interruptions": []},
                 settings={"silence_threshold_ms": 500},
                 seed=scenario.seed,
                 started_at=started,
@@ -78,7 +82,7 @@ class DeterministicConfirmationAgent:
             LayerTrace(
                 layer=Layer.LLM,
                 input={"transcript": transcript},
-                output={"tool_name": "store_confirmation", "arguments": {"code": transcript_code}},
+                output={"tool_name": "store_confirmation", "arguments": {"code": llm_code}},
                 settings={"model": "deterministic"},
                 seed=scenario.seed,
                 started_at=started,
@@ -86,7 +90,7 @@ class DeterministicConfirmationAgent:
             ),
             LayerTrace(
                 layer=Layer.TOOLS,
-                input={"name": "store_confirmation", "arguments": {"code": transcript_code}},
+                input={"name": "store_confirmation", "arguments": {"code": llm_code}},
                 output={"database_state": after},
                 settings={"tool": "deterministic-memory-db"},
                 started_at=started,
@@ -94,8 +98,8 @@ class DeterministicConfirmationAgent:
             ),
             LayerTrace(
                 layer=Layer.TTS,
-                input={"text": f"I saved confirmation code {transcript_code}."},
-                output={"spoken_text": f"I saved confirmation code {transcript_code}."},
+                input={"text": f"I saved confirmation code {spoken_code}."},
+                output={"spoken_text": f"I saved confirmation code {spoken_code}."},
                 settings={"voice": "deterministic"},
                 seed=scenario.seed,
                 started_at=started,
@@ -117,6 +121,7 @@ class DeterministicConfirmationAgent:
             seed=scenario.seed,
             valid_caller_run=scenario.caller_valid,
             expected_database_state=scenario.expected_database_state,
+            expected_spoken_text=f"I saved confirmation code {scenario.confirmation_code}.",
             final_database_state=after,
             turns=[turn],
         )

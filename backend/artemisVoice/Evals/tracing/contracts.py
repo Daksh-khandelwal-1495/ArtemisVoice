@@ -95,6 +95,7 @@ class RunTrace(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     valid_caller_run: bool
     expected_database_state: dict[str, str]
+    expected_spoken_text: str
     final_database_state: dict[str, str]
     turns: list[TurnTrace] = Field(min_length=1)
 
@@ -111,6 +112,13 @@ class RunTrace(BaseModel):
             return self.turns[index]
         except IndexError as error:
             raise TraceContractError(f"turn {index} does not exist in run {self.id}") from error
+
+    def is_successful(self) -> bool:
+        spoken = next(layer for layer in self.turns[-1].layers if layer.layer is Layer.TTS)
+        return (
+            self.final_database_state == self.expected_database_state
+            and spoken.output.get("spoken_text") == self.expected_spoken_text
+        )
 
 
 def state_hash(state: dict[str, str]) -> str:
