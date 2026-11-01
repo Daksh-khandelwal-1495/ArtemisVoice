@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
+from artemisVoice.Evals.agents.protocol import VoiceAgentAdapter
 from artemisVoice.Evals.api.app import create_app
 from artemisVoice.Evals.causal.locator import CandidateReason, CandidateTurnLocator
 from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Verdict
@@ -219,3 +220,29 @@ def test_api_executes_the_full_approved_patch_workflow(tmp_path: Path) -> None:
 
     assert result.status_code == 201
     assert result.json()["passed"] is True
+
+
+def test_api_accepts_a_teammate_agent_adapter(tmp_path: Path) -> None:
+    class RecordingAdapter:
+        def __init__(self) -> None:
+            self.delegate = DeterministicConfirmationAgent()
+            self.calls = 0
+
+        @property
+        def config_hash(self) -> str:
+            return self.delegate.config_hash
+
+        def run(self, scenario: Scenario):
+            self.calls += 1
+            return self.delegate.run(scenario)
+
+    adapter = RecordingAdapter()
+    assert isinstance(adapter, VoiceAgentAdapter)
+    client = TestClient(create_app(tmp_path / "adapter.db", agent=adapter))
+    response = client.post(
+        "/runs",
+        json=json.loads((SCENARIOS / "healthy_confirmation.json").read_text(encoding="utf-8")),
+    )
+
+    assert response.status_code == 201
+    assert adapter.calls == 1

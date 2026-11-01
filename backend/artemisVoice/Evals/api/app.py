@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
+from artemisVoice.Evals.agents.protocol import VoiceAgentAdapter
 from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Diagnosis
 from artemisVoice.Evals.domain.models import Scenario
 from artemisVoice.Evals.patches.service import (
@@ -35,12 +36,16 @@ class PatchValidationRequest(BaseModel):
     regression: list[Scenario] = Field(min_length=1)
 
 
-def create_app(database_path: Path | str = "artemis_voice.db") -> FastAPI:
+def create_app(
+    database_path: Path | str = "artemis_voice.db",
+    *,
+    agent: VoiceAgentAdapter | None = None,
+) -> FastAPI:
     """Create a local-first API instance; no vendor credentials are required for the MVP."""
 
     app = FastAPI(title="ArtemisVoice Evals", version="0.1.0")
     store = SQLiteTraceStore(database_path)
-    agent = DeterministicConfirmationAgent()
+    agent_under_test = agent or DeterministicConfirmationAgent()
     engine = CounterfactualReplayEngine()
     patch_service = PatchService()
 
@@ -56,7 +61,7 @@ def create_app(database_path: Path | str = "artemis_voice.db") -> FastAPI:
 
     @app.post("/runs", response_model=RunTrace, status_code=201)
     def create_run(scenario: Scenario) -> RunTrace:
-        trace = agent.run(scenario)
+        trace = agent_under_test.run(scenario)
         store.save(trace)
         return trace
 
@@ -109,9 +114,14 @@ def create_app(database_path: Path | str = "artemis_voice.db") -> FastAPI:
     def validate_patch(patch_id: UUID, request: PatchValidationRequest) -> PatchGateResult:
         try:
             patch = store.get_patch(patch_id)
+            if not isinstance(agent_under_test, DeterministicConfirmationAgent):
+                raise HTTPException(
+                    status_code=501,
+                    detail="Patch application needs an adapter-specific patch handler.",
+                )
             result = patch_service.validate(
                 patch,
-                base_agent=agent,
+                base_agent=agent_under_test,
                 failing=request.failing,
                 held_out=request.held_out,
                 regression=request.regression,

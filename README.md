@@ -49,3 +49,5 @@ counterfactual arm to other pipeline layers.
 The API exposes the same workflow through `/runs`,
 `/runs/{run_id}/diagnoses/stt`, and approval-gated `/patches` endpoints. It is
 the integration surface for the voice agent under `backend/artemisVoice`.
+See [the agent integration contract](docs/VOICE_AGENT_INTEGRATION.md) before
+wiring a Pipecat or other live agent into the evaluator.
