@@ -48,7 +48,7 @@ class LayerTrace(BaseModel):
     finished_at: datetime
 
     @model_validator(mode="after")
-    def timestamps_are_ordered(self) -> "LayerTrace":
+    def timestamps_are_ordered(self) -> LayerTrace:
         if self.finished_at < self.started_at:
             raise ValueError("layer trace finishes before it starts")
         return self
@@ -68,7 +68,7 @@ class TurnTrace(BaseModel):
     layers: list[LayerTrace]
 
     @model_validator(mode="after")
-    def is_complete(self) -> "TurnTrace":
+    def is_complete(self) -> TurnTrace:
         captured = {entry.layer for entry in self.layers}
         missing = set(Layer) - captured
         if missing:
@@ -94,11 +94,12 @@ class RunTrace(BaseModel):
     seed: int = Field(ge=0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     valid_caller_run: bool
+    expected_database_state: dict[str, str]
     final_database_state: dict[str, str]
     turns: list[TurnTrace] = Field(min_length=1)
 
     @model_validator(mode="after")
-    def ordered_turns_and_final_state(self) -> "RunTrace":
+    def ordered_turns_and_final_state(self) -> RunTrace:
         if [turn.index for turn in self.turns] != list(range(len(self.turns))):
             raise ValueError("turn indexes must begin at zero and be contiguous")
         if self.final_database_state != self.turns[-1].database_state_after:

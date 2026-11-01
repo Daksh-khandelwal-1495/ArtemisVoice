@@ -29,3 +29,6 @@ where = ["backend"]
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 
+[tool.ruff.lint.per-file-ignores]
+"backend/artemisVoice/**" = ["N999"]
+

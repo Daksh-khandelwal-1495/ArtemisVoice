@@ -4,13 +4,12 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
-
 from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
+from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Verdict
 from artemisVoice.Evals.domain.models import Scenario
 from artemisVoice.Evals.storage.sqlite import SQLiteTraceStore
 from artemisVoice.Evals.tracing.contracts import Layer, RunTrace
-
+from pydantic import ValidationError
 
 SCENARIOS = Path(__file__).resolve().parents[2] / "scenarios"
 
@@ -55,3 +54,28 @@ def test_trace_rejects_missing_pipeline_layer() -> None:
         RunTrace.model_validate(
             trace.model_dump() | {"turns": [invalid_turn.model_dump()]}
         )
+
+
+def test_stt_oracle_is_proven_against_a_control_arm() -> None:
+    trace = DeterministicConfirmationAgent().run(load_scenario("stt_confusion_confirmation.json"))
+    diagnosis = CounterfactualReplayEngine().diagnose_stt(trace, turn_index=0, trials=5)
+
+    assert diagnosis.control.pass_count == 0
+    assert diagnosis.intervention_arm.pass_count == 5
+    assert diagnosis.effect_size == 1.0
+    assert diagnosis.fisher_exact_p_value == pytest.approx(0.0079365079)
+    assert diagnosis.verdict is Verdict.PROVEN
+
+
+def test_diagnosis_evidence_is_persisted_with_its_source_run(tmp_path: Path) -> None:
+    trace = DeterministicConfirmationAgent().run(load_scenario("stt_confusion_confirmation.json"))
+    diagnosis = CounterfactualReplayEngine().diagnose_stt(trace, turn_index=0, trials=5)
+    store = SQLiteTraceStore(tmp_path / "traces.db")
+    try:
+        store.save(trace)
+        store.save_diagnosis(diagnosis)
+        restored = store.get_diagnosis(trace.id, 0, "stt_oracle")
+    finally:
+        store.close()
+
+    assert restored == diagnosis

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from hashlib import sha256
+from typing import ClassVar
 
 from artemisVoice.Evals.domain.models import Scenario
 from artemisVoice.Evals.tracing.contracts import (
@@ -17,7 +18,7 @@ from artemisVoice.Evals.tracing.contracts import (
 class DeterministicConfirmationAgent:
     """MVP adapter with a controlled STT bug for causal-replay development."""
 
-    config = {"adapter": "deterministic-confirmation", "version": 1}
+    config: ClassVar[dict[str, str | int]] = {"adapter": "deterministic-confirmation", "version": 1}
 
     @property
     def config_hash(self) -> str:
@@ -102,6 +103,7 @@ class DeterministicConfirmationAgent:
             agent_config_hash=self.config_hash,
             seed=scenario.seed,
             valid_caller_run=True,
+            expected_database_state=scenario.expected_database_state,
             final_database_state=after,
             turns=[turn],
         )

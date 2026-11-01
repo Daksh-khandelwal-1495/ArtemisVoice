@@ -19,6 +19,7 @@ The repository now has the Phase 0 foundation:
 - a deterministic confirmation-code domain with healthy and forced-STT-error
   scenarios;
 - a SQLite trace store that restores a saved turn and its database snapshot;
+- a control-vs-oracle-STT counterfactual replay with repeated-trial statistics;
 - tests covering valid traces, the seeded failure, and a missing-artifact guard.
 
 See [the implementation plan](docs/IMPLEMENTATION_PLAN.md) for ordered milestones,
@@ -36,5 +37,5 @@ python -m artemisVoice.Evals.cli --scenario scenarios/healthy_confirmation.json
 ```
 
 The CLI writes a replayable run to SQLite and prints the structured result. The
-next milestone adds same-seed control replay, counterfactual arms, and repeated
-trial verdicts.
+next milestone generalizes the first counterfactual arm to other pipeline layers
+and persists experiments and diagnoses as first-class records.
