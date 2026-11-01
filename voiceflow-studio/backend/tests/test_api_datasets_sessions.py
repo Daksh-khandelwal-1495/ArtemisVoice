@@ -102,6 +102,42 @@ async def test_sessions_listing_and_detail(client, db):
     assert (await client.get("/api/sessions/garbage")).status_code == 404
 
 
+async def test_artemis_evidence_export_is_honest_about_replay_gaps(client, db):
+    _, session, _ = await _make_sessions(client, db)
+    session.config_snapshot = {
+        "stt": {"provider": "openai", "model": "gpt-4o-transcribe", "language": "en-IN"},
+        "llm": {"provider": "openai", "model": "gpt-4.1-mini"},
+        "tts": {"provider": "openai", "model": "gpt-4o-mini-tts", "voice": "alloy"},
+        "vad": {"confidence": 0.7, "stop_secs": 0.8},
+    }
+    db.add_all([
+        SessionEvent(session_id=session.id, type="user_transcript", node_id="collect_info",
+                     payload={"text": "My pincode is 411001."}),
+        SessionEvent(session_id=session.id, type="function_call", node_id="collect_info",
+                     payload={"function": "submit_collect_info", "args": {"pincode": "411001"}}),
+        SessionEvent(session_id=session.id, type="lookup", node_id="find_dealer",
+                     payload={"dataset": "dealers", "found": True, "count": 1}),
+        SessionEvent(session_id=session.id, type="bot_transcript", node_id="find_dealer",
+                     payload={"text": "I found a dealer in Pune."}),
+    ])
+    await db.commit()
+
+    response = await client.get(f"/api/sessions/{session.id}/artemis-evidence")
+    assert response.status_code == 200, response.text
+    evidence = response.json()
+    assert evidence["schema_version"] == "voiceflow-artemis-evidence/v1"
+    assert evidence["replay_eligible"] is False
+    assert "caller audio artifact with an immutable checksum" in evidence["replay_blockers"]
+    assert len(evidence["turns"]) == 1
+    turn = evidence["turns"][0]
+    assert turn["speech_to_text"]["final_hypothesis"] == "My pincode is 411001."
+    assert turn["speech_to_text"]["settings"]["model"] == "gpt-4o-transcribe"
+    assert turn["llm"]["bot_responses"] == ["I found a dealer in Pune."]
+    assert turn["tools"]["function_calls"][0]["payload"]["function"] == "submit_collect_info"
+    assert turn["tools"]["lookups"][0]["payload"]["found"] is True
+    assert (await client.get("/api/sessions/garbage/artemis-evidence")).status_code == 404
+
+
 async def test_bot_stats(client, db):
     bot, s1, s2 = await _make_sessions(client, db)
     st = (await client.get(f"/api/bots/{bot['id']}/stats")).json()

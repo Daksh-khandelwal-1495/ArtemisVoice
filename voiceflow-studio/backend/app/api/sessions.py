@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.common import get_bot_or_404, latest_version, mask_payload, mask_value, parse_uuid, sensitive_fields
 from app.db.models import Bot, CallSession, CapturedField, FlowVersion, SessionEvent
 from app.db.session import get_db
+from app.services.artemis_evidence import build_artemis_evidence
 
 router = APIRouter(tags=["sessions"])
 
@@ -173,3 +174,38 @@ async def get_session(session_id: str, reveal: bool = False, db: AsyncSession = 
             for c in captured
         ],
     }
+
+
+@router.get("/sessions/{session_id}/artemis-evidence")
+async def get_artemis_evidence(
+    session_id: str, reveal: bool = False, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Export recorded Studio evidence without overstating replay readiness."""
+    sid = parse_uuid(session_id)
+    session = await db.get(CallSession, sid) if sid else None
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    bot = await db.get(Bot, session.bot_id)
+    flow_version = await db.get(FlowVersion, session.flow_version_id) if session.flow_version_id else None
+    graph = flow_version.graph if flow_version else None
+    all_sensitive = sensitive_fields(graph)
+    sensitive = set() if reveal else all_sensitive
+    events = (
+        await db.execute(
+            select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.ts, SessionEvent.id)
+        )
+    ).scalars().all()
+    evidence = build_artemis_evidence(
+        session=session,
+        bot=bot,
+        flow_version=flow_version,
+        events=events,
+        variables=mask_payload(session.variables or {}, sensitive),
+    )
+    for turn in evidence["turns"]:
+        turn["caller"] = mask_payload(turn["caller"], sensitive)
+        turn["speech_to_text"] = mask_payload(turn["speech_to_text"], sensitive)
+        turn["llm"] = mask_payload(turn["llm"], sensitive)
+        turn["tools"] = mask_payload(turn["tools"], sensitive)
+        turn["text_to_speech"] = mask_payload(turn["text_to_speech"], sensitive)
+    return evidence

@@ -51,6 +51,7 @@ All ids UUID, timestamps `timestamptz` default now().
 - `GET /datasets` → `[{id,name,description,columns,row_count}]`; `GET /datasets/{name}/rows?q=&limit=&offset=`; `POST /datasets/{name}/rows` `{data}`; `DELETE /datasets/{name}/rows/{row_id}`
 - `GET /sessions?bot_id=&status=&limit=&offset=` → `{items:[{id,bot_id,bot_name,status,end_reason,mode,started_at,ended_at,duration_secs,captured_count,required_missing}], total}`
 - `GET /sessions/{id}` → session + `events[]` + `captured[]`
+- `GET /sessions/{id}/artemis-evidence` → a per-turn evidence bundle for ArtemisVoice. This is intentionally marked `replay_eligible: false` until raw audio, provider-native layer artifacts, an expected-outcome oracle, and sandbox replay state are supplied.
 - `GET /bots/{id}/stats` → `{total_sessions, completed, transferred, abandoned, avg_duration_secs, completion_rate, field_capture_rates: {field: rate}}`
 
 Errors: `{detail: string | object}` with proper status codes.
