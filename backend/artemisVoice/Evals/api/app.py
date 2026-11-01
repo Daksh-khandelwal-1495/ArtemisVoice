@@ -17,6 +17,7 @@ from artemisVoice.Evals.evaluation.judges import (
     needs_human_review,
     validate_evidence,
 )
+from artemisVoice.Evals.evaluation.regressions import RegressionCase, RegressionService
 from artemisVoice.Evals.evaluation.review_queue import ReviewItem
 from artemisVoice.Evals.patches.service import (
     PatchGateResult,
@@ -60,6 +61,7 @@ def create_app(
     agent_under_test = agent or DeterministicConfirmationAgent()
     engine = CounterfactualReplayEngine()
     patch_service = PatchService()
+    regression_service = RegressionService()
 
     def get_run(run_id: UUID) -> RunTrace:
         try:
@@ -165,6 +167,23 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(error)) from error
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/patches/{patch_id}/remember", response_model=RegressionCase, status_code=201)
+    def remember_regression(patch_id: UUID, scenario: Scenario) -> RegressionCase:
+        try:
+            regression = regression_service.remember(
+                store.get_patch(patch_id), store.get_patch_gate_result(patch_id), scenario
+            )
+            store.save_regression_case(regression)
+            return regression
+        except TraceContractError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.get("/regressions", response_model=list[RegressionCase])
+    def list_regressions() -> list[RegressionCase]:
+        return store.list_regression_cases()
 
     return app
 

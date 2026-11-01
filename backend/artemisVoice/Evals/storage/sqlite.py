@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 from artemisVoice.Evals.causal.replay import Diagnosis
+from artemisVoice.Evals.evaluation.regressions import RegressionCase
 from artemisVoice.Evals.evaluation.review_queue import ReviewItem
 from artemisVoice.Evals.patches.service import PatchGateResult, PatchProposal
 from artemisVoice.Evals.tracing.contracts import RunTrace, TraceContractError, TurnTrace
@@ -39,6 +40,9 @@ class SQLiteTraceStore:
         )
         self._connection.execute(
             "CREATE TABLE IF NOT EXISTS review_items (id TEXT PRIMARY KEY, state TEXT NOT NULL, item_json TEXT NOT NULL)"
+        )
+        self._connection.execute(
+            "CREATE TABLE IF NOT EXISTS regression_cases (id TEXT PRIMARY KEY, case_json TEXT NOT NULL)"
         )
         self._connection.commit()
 
@@ -131,6 +135,17 @@ class SQLiteTraceStore:
             "SELECT item_json FROM review_items WHERE state = 'pending' ORDER BY id"
         ).fetchall()
         return [ReviewItem.model_validate_json(row[0]) for row in rows]
+
+    def save_regression_case(self, case: RegressionCase) -> None:
+        self._connection.execute(
+            "INSERT OR REPLACE INTO regression_cases (id, case_json) VALUES (?, ?)",
+            (str(case.id), case.model_dump_json()),
+        )
+        self._connection.commit()
+
+    def list_regression_cases(self) -> list[RegressionCase]:
+        rows = self._connection.execute("SELECT case_json FROM regression_cases ORDER BY id").fetchall()
+        return [RegressionCase.model_validate_json(row[0]) for row in rows]
 
     def close(self) -> None:
         self._connection.close()

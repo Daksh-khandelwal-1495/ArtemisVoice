@@ -228,6 +228,9 @@ def test_api_executes_the_full_approved_patch_workflow(tmp_path: Path) -> None:
 
     assert result.status_code == 201
     assert result.json()["passed"] is True
+    regression = client.post(f"/patches/{patch.json()['id']}/remember", json=failing)
+    assert regression.status_code == 201
+    assert client.get("/regressions").json()[0]["scenario"]["id"] == failing["id"]
 
 
 def test_api_accepts_a_teammate_agent_adapter(tmp_path: Path) -> None:
