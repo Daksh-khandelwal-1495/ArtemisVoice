@@ -10,6 +10,13 @@ from artemisVoice.Evals.api.app import create_app
 from artemisVoice.Evals.causal.locator import CandidateReason, CandidateTurnLocator
 from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Verdict
 from artemisVoice.Evals.domain.models import Scenario
+from artemisVoice.Evals.evaluation.judges import (
+    JudgeEvidenceError,
+    JudgeResult,
+    JudgeVerdict,
+    deterministic_judges,
+    validate_evidence,
+)
 from artemisVoice.Evals.evaluation.self_validation import (
     ExpectedCause,
     SelfValidationRunner,
@@ -246,3 +253,43 @@ def test_api_accepts_a_teammate_agent_adapter(tmp_path: Path) -> None:
 
     assert response.status_code == 201
     assert adapter.calls == 1
+
+
+def test_judges_require_trace_backed_evidence_and_queue_human_review(tmp_path: Path) -> None:
+    trace = DeterministicConfirmationAgent().run(load_scenario("stt_confusion_confirmation.json"))
+    result = deterministic_judges(trace)[0]
+    assert result.verdict is JudgeVerdict.FAIL
+    with pytest.raises(JudgeEvidenceError, match="does not exist"):
+        validate_evidence(
+            trace,
+            JudgeResult(
+                judge="llm",
+                metric="faithfulness",
+                verdict=JudgeVerdict.FAIL,
+                confidence=0.5,
+                evidence=["invented quote"],
+            ),
+        )
+
+    client = TestClient(create_app(tmp_path / "review.db"))
+    run = client.post(
+        "/runs",
+        json=json.loads((SCENARIOS / "stt_confusion_confirmation.json").read_text(encoding="utf-8")),
+    )
+    review = client.post(
+        f"/runs/{run.json()['id']}/reviews",
+        json={
+            "results": [
+                {
+                    "judge": "llm-faithfulness",
+                    "metric": "faithfulness",
+                    "verdict": "abstain",
+                    "confidence": 0.4,
+                    "evidence": ["P8Q2"],
+                }
+            ]
+        },
+    )
+
+    assert review.status_code == 201
+    assert client.get("/reviews").json()[0]["id"] == review.json()["id"]

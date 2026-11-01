@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 from artemisVoice.Evals.causal.replay import Diagnosis
+from artemisVoice.Evals.evaluation.review_queue import ReviewItem
 from artemisVoice.Evals.patches.service import PatchGateResult, PatchProposal
 from artemisVoice.Evals.tracing.contracts import RunTrace, TraceContractError, TurnTrace
 
@@ -35,6 +36,9 @@ class SQLiteTraceStore:
         )
         self._connection.execute(
             "CREATE TABLE IF NOT EXISTS patch_gate_results (patch_id TEXT PRIMARY KEY, result_json TEXT NOT NULL)"
+        )
+        self._connection.execute(
+            "CREATE TABLE IF NOT EXISTS review_items (id TEXT PRIMARY KEY, state TEXT NOT NULL, item_json TEXT NOT NULL)"
         )
         self._connection.commit()
 
@@ -114,6 +118,19 @@ class SQLiteTraceStore:
         if row is None:
             raise TraceContractError(f"patch gate result for {patch_id} was not found")
         return PatchGateResult.model_validate_json(row[0])
+
+    def save_review_item(self, item: ReviewItem) -> None:
+        self._connection.execute(
+            "INSERT OR REPLACE INTO review_items (id, state, item_json) VALUES (?, ?, ?)",
+            (str(item.id), item.state, item.model_dump_json()),
+        )
+        self._connection.commit()
+
+    def list_pending_review_items(self) -> list[ReviewItem]:
+        rows = self._connection.execute(
+            "SELECT item_json FROM review_items WHERE state = 'pending' ORDER BY id"
+        ).fetchall()
+        return [ReviewItem.model_validate_json(row[0]) for row in rows]
 
     def close(self) -> None:
         self._connection.close()

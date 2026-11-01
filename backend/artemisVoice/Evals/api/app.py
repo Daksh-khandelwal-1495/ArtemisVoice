@@ -10,6 +10,14 @@ from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAge
 from artemisVoice.Evals.agents.protocol import VoiceAgentAdapter
 from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Diagnosis
 from artemisVoice.Evals.domain.models import Scenario
+from artemisVoice.Evals.evaluation.judges import (
+    JudgeEvidenceError,
+    JudgeResult,
+    deterministic_judges,
+    needs_human_review,
+    validate_evidence,
+)
+from artemisVoice.Evals.evaluation.review_queue import ReviewItem
 from artemisVoice.Evals.patches.service import (
     PatchGateResult,
     PatchProposal,
@@ -34,6 +42,10 @@ class PatchValidationRequest(BaseModel):
     failing: list[Scenario] = Field(min_length=1)
     held_out: list[Scenario] = Field(min_length=1)
     regression: list[Scenario] = Field(min_length=1)
+
+
+class JudgeReviewRequest(BaseModel):
+    results: list[JudgeResult] = Field(min_length=1)
 
 
 def create_app(
@@ -86,6 +98,27 @@ def create_app(
             return store.get_diagnosis(run_id, turn_index, "stt_oracle")
         except TraceContractError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.get("/runs/{run_id}/judges", response_model=list[JudgeResult])
+    def judge_run(run_id: UUID) -> list[JudgeResult]:
+        return deterministic_judges(get_run(run_id))
+
+    @app.post("/runs/{run_id}/reviews", response_model=ReviewItem, status_code=201)
+    def queue_judge_review(run_id: UUID, request: JudgeReviewRequest) -> ReviewItem:
+        trace = get_run(run_id)
+        try:
+            results = [validate_evidence(trace, result) for result in request.results]
+        except JudgeEvidenceError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        if not needs_human_review(results):
+            raise HTTPException(status_code=422, detail="The supplied judge results do not require review.")
+        item = ReviewItem(run_id=run_id, reason="judge abstention, low confidence, or safety flag", judge_results=results)
+        store.save_review_item(item)
+        return item
+
+    @app.get("/reviews", response_model=list[ReviewItem])
+    def list_reviews() -> list[ReviewItem]:
+        return store.list_pending_review_items()
 
     @app.post("/patches/stt-keyword-boost", response_model=PatchProposal, status_code=201)
     def create_stt_patch(request: PatchRequest) -> PatchProposal:
