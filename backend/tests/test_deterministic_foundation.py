@@ -289,6 +289,20 @@ def test_api_executes_the_full_approved_patch_workflow(tmp_path: Path) -> None:
     assert client.get("/regressions").json()[0]["scenario"]["id"] == failing["id"]
 
 
+def test_api_runs_a_non_stt_counterfactual_intervention(tmp_path: Path) -> None:
+    client = TestClient(create_app(tmp_path / "intervention.db"))
+    scenario = json.loads((SCENARIOS / "healthy_confirmation.json").read_text(encoding="utf-8"))
+    scenario["forced_tool_code"] = "P8Q2"
+    run = client.post("/runs", json=scenario)
+    diagnosis = client.post(
+        f"/runs/{run.json()['id']}/diagnoses",
+        json={"turn_index": 0, "intervention": "tools_oracle"},
+    )
+
+    assert diagnosis.status_code == 201
+    assert diagnosis.json()["verdict"] == "proven"
+
+
 def test_api_accepts_a_teammate_agent_adapter(tmp_path: Path) -> None:
     class RecordingAdapter:
         def __init__(self) -> None:

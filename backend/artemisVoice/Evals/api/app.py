@@ -8,7 +8,11 @@ from pydantic import BaseModel, Field
 
 from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
 from artemisVoice.Evals.agents.protocol import VoiceAgentAdapter
-from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Diagnosis
+from artemisVoice.Evals.causal.replay import (
+    CounterfactualReplayEngine,
+    Diagnosis,
+    Intervention,
+)
 from artemisVoice.Evals.domain.models import Scenario
 from artemisVoice.Evals.evaluation.judges import (
     JudgeEvidenceError,
@@ -31,6 +35,7 @@ from artemisVoice.Evals.tracing.contracts import RunTrace, TraceContractError
 class DiagnosisRequest(BaseModel):
     turn_index: int = Field(ge=0)
     trials: int = Field(default=5, ge=1)
+    intervention: Intervention = Intervention.STT_ORACLE
 
 
 class PatchRequest(BaseModel):
@@ -86,8 +91,25 @@ def create_app(
     @app.post("/runs/{run_id}/diagnoses/stt", response_model=Diagnosis, status_code=201)
     def diagnose_stt(run_id: UUID, request: DiagnosisRequest) -> Diagnosis:
         try:
-            diagnosis = engine.diagnose_stt(
-                get_run(run_id), turn_index=request.turn_index, trials=request.trials
+            diagnosis = engine.diagnose(
+                get_run(run_id),
+                turn_index=request.turn_index,
+                intervention=Intervention.STT_ORACLE,
+                trials=request.trials,
+            )
+            store.save_diagnosis(diagnosis)
+            return diagnosis
+        except (TraceContractError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/runs/{run_id}/diagnoses", response_model=Diagnosis, status_code=201)
+    def diagnose_layer(run_id: UUID, request: DiagnosisRequest) -> Diagnosis:
+        try:
+            diagnosis = engine.diagnose(
+                get_run(run_id),
+                turn_index=request.turn_index,
+                intervention=request.intervention,
+                trials=request.trials,
             )
             store.save_diagnosis(diagnosis)
             return diagnosis

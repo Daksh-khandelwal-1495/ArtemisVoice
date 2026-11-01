@@ -27,6 +27,8 @@ artifact, contiguous turns, and matching database hashes. If those invariants
 are not met, the adapter must fail the run rather than return a partial trace.
 
 The API can immediately create and persist runs from any compliant adapter.
+The API accepts `endpointing_oracle`, `stt_oracle`, `llm_oracle`,
+`tools_oracle`, and `tts_oracle` interventions at `POST /runs/{id}/diagnoses`.
 Counterfactual substitutions and automatic patch application remain
 adapter-specific: implement them only after the agent exposes deterministic
 turn restoration. Until then, use the supplied deterministic adapter to test
