@@ -3,7 +3,7 @@
 import { ListChecks, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
-import { Badge, Button, Card, EmptyState, ErrorBox, Select, Spinner, statusTone } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorBox, Select, Spinner, Switch, statusTone } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { SessionList } from "@/lib/types";
 
@@ -15,9 +15,14 @@ export function SessionsTab({ botId, onOpen }: { botId: string; onOpen: (id: str
   const [status, setStatus] = useState("");
   const [mode, setMode] = useState("");
   const [page, setPage] = useState(0);
-  const { data, error, isLoading, mutate } = useSWR<SessionList>(`sessions:${botId}:${status}:${mode}:${page}`, () =>
-    api.sessions({ bot_id: botId, status: status || undefined, mode: mode || undefined, limit: PAGE, offset: page * PAGE }),
+  const [showReplays, setShowReplays] = useState(false);
+  const includeReplay = showReplays || mode === "replay";
+  const { data: raw, error, isLoading, mutate } = useSWR<SessionList>(`sessions:${botId}:${status}:${mode}:${includeReplay}:${page}`, () =>
+    api.sessions({ bot_id: botId, status: status || undefined, mode: mode || undefined, include_replay: includeReplay || undefined, limit: PAGE, offset: page * PAGE }),
   );
+  // Replay-sandbox sessions are hidden by default (backend excludes them unless include_replay=true;
+  // filter client-side too in case an older backend ignores the flag).
+  const data = raw && !includeReplay ? { ...raw, items: raw.items.filter((s) => s.mode !== "replay") } : raw;
   return (
     <div className="flex-1 overflow-y-auto p-6 thin-scroll">
       <div className="mx-auto max-w-6xl">
@@ -32,7 +37,13 @@ export function SessionsTab({ botId, onOpen }: { botId: string; onOpen: (id: str
             <option value="">All modes</option>
             <option value="draft">draft</option>
             <option value="published">published</option>
+            <option value="simulation">simulation</option>
+            <option value="replay">replay</option>
           </Select>
+          <label className="flex items-center gap-1.5 text-[12px] text-muted">
+            <Switch checked={includeReplay} onChange={(v) => (setShowReplays(v), setPage(0))} disabled={mode === "replay"} label="Show replay sessions" />
+            Show replays
+          </label>
           <Button size="sm" variant="ghost" onClick={() => mutate()}>
             <RefreshCw className="size-3.5" /> Refresh
           </Button>
@@ -70,7 +81,7 @@ export function SessionsTab({ botId, onOpen }: { botId: string; onOpen: (id: str
                       </td>
                       <td className="px-3 py-2 font-mono text-[11.5px] text-muted">{s.end_reason ?? "—"}</td>
                       <td className="px-3 py-2">
-                        <Badge tone={s.mode === "published" ? "green" : "gray"}>{s.mode}</Badge>
+                        <Badge tone={s.mode === "published" ? "green" : s.mode === "replay" ? "violet" : "gray"}>{s.mode}</Badge>
                       </td>
                       <td className="px-3 py-2 tabular-nums">{fmtDuration(s.duration_secs)}</td>
                       <td className="px-3 py-2 tabular-nums">{s.captured_count}</td>

@@ -1,11 +1,11 @@
 "use client";
 
-import { AlertTriangle, AudioWaveform, Database, LayoutGrid, Moon, Sun, X } from "lucide-react";
+import { AlertTriangle, AudioWaveform, Database, ExternalLink, LayoutGrid, Microscope, Moon, Sun, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import useSWR, { SWRConfig } from "swr";
-import { API_URL, MOCK, fetcher } from "@/lib/api";
+import { API_URL, ARTEMIS_DASHBOARD_URL, MOCK, fetcher } from "@/lib/api";
 import type { Health } from "@/lib/types";
 import { useIsDark } from "@/lib/use-theme";
 import { ConfirmProvider, ToastProvider, cn } from "./ui";
@@ -74,6 +74,42 @@ export function HealthBanner() {
   return null;
 }
 
+/** Header link to the Artemis causal-debugger dashboard with a reachability pill (opaque no-cors ping). */
+function ArtemisLink() {
+  const { data: up } = useSWR<boolean>(
+    MOCK ? null : `artemis-ping:${ARTEMIS_DASHBOARD_URL}`,
+    () =>
+      fetch(ARTEMIS_DASHBOARD_URL, { mode: "no-cors", cache: "no-store" }).then(
+        () => true,
+        () => false,
+      ),
+    { refreshInterval: 30000 },
+  );
+  const state = MOCK ? "mock" : up === undefined ? "…" : up ? "online" : "offline";
+  return (
+    <a
+      href={ARTEMIS_DASHBOARD_URL}
+      target="_blank"
+      rel="noreferrer"
+      title={`Artemis causal debugger · ${ARTEMIS_DASHBOARD_URL} (${state})`}
+      className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-muted hover:bg-panel-2 hover:text-fg"
+    >
+      <Microscope className="size-3.5" />
+      Artemis
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-1.5 text-[10px] font-medium leading-4",
+          up ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : up === false ? "border-border bg-panel-2 text-subtle" : "border-border bg-panel-2 text-muted",
+        )}
+      >
+        <span className={cn("size-1.5 rounded-full", up ? "bg-emerald-500" : up === false ? "bg-zinc-400" : "bg-amber-400")} />
+        {state === "online" ? "eval" : state}
+      </span>
+      <ExternalLink className="size-3 opacity-60" />
+    </a>
+  );
+}
+
 function NavLink({ href, icon, children }: { href: string; icon: ReactNode; children: ReactNode }) {
   const path = usePathname();
   const active = href === "/" ? path === "/" || path.startsWith("/bots") || path.startsWith("/sessions") : path.startsWith(href);
@@ -113,6 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </NavLink>
               </nav>
               <div className="ml-auto flex items-center gap-2">
+                <ArtemisLink />
                 {MOCK && (
                   <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[11px] font-medium text-amber-700 dark:text-amber-400">
                     MOCK MODE

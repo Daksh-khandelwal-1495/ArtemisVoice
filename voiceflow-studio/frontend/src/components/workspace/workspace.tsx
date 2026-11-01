@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle2, History, ListChecks, PhoneCall, Rocket, Save, Settings, ShieldCheck, Workflow } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FlaskConical, History, ListChecks, PhoneCall, Rocket, Save, Settings, ShieldCheck, Workflow } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -12,13 +12,14 @@ import { normalizeGraph } from "@/lib/defaults";
 import { lintFlow } from "@/lib/lint";
 import type { BotDetail, Dataset, FlowGraph, FlowValidationResult } from "@/lib/types";
 import { useGraphHistory } from "@/lib/use-graph-history";
+import { OraclesTab } from "./oracles-tab";
 import { SessionsTab } from "./sessions-tab";
 import { SettingsTab } from "./settings-tab";
 import { TestCallTab } from "./test-call-tab";
 import { VersionsTab } from "./versions-tab";
 
-type Tab = "flow" | "settings" | "test" | "sessions" | "versions";
-const TABS: Tab[] = ["flow", "settings", "test", "sessions", "versions"];
+type Tab = "flow" | "settings" | "test" | "sessions" | "oracles" | "versions";
+const TABS: Tab[] = ["flow", "settings", "test", "sessions", "oracles", "versions"];
 
 function NameEditor({ bot, onSaved }: { bot: BotDetail; onSaved: () => void }) {
   const [name, setName] = useState(bot.name);
@@ -267,6 +268,7 @@ export function Workspace({ botId }: { botId: string }) {
             { value: "settings", label: "Settings", icon: <Settings className="size-3.5" /> },
             { value: "test", label: "Test call", icon: <PhoneCall className="size-3.5" /> },
             { value: "sessions", label: "Sessions", icon: <ListChecks className="size-3.5" /> },
+            { value: "oracles", label: "Oracles & Demos", icon: <FlaskConical className="size-3.5" /> },
             { value: "versions", label: "Versions", icon: <History className="size-3.5" /> },
           ]}
         />
@@ -277,6 +279,7 @@ export function Workspace({ botId }: { botId: string }) {
       {tab === "settings" && <SettingsTab bot={bot} onSaved={() => mutate()} />}
       {tab === "test" && <TestCallTab bot={bot} draftGraph={graph as FlowGraph} dirty={dirty} onSave={save} />}
       {tab === "sessions" && <SessionsTab botId={bot.id} onOpen={(sid) => router.push(`/sessions/${sid}`)} />}
+      {tab === "oracles" && <OraclesTab bot={bot} graph={graph as FlowGraph} />}
       {tab === "versions" && (
         <VersionsTab
           bot={bot}

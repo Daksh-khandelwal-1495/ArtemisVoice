@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored, minified Daily.co worker bundles (served as static files, not our source).
+    "public/daily/**",
   ]),
 ]);
 
