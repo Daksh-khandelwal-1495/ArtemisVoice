@@ -19,6 +19,24 @@ cd backend && uv sync && uv run uvicorn app.main:app --port 8000   # creates tab
 cd frontend && npm install && npm run dev  # http://localhost:3000
 ```
 
+### Docker backend (no host Python required)
+
+With `backend/.env` populated, Docker Desktop can run the backend and Postgres:
+
+```bash
+cd voiceflow-studio
+docker compose up --build -d
+```
+
+Verify the database and configured provider keys without exposing their values:
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+Run the existing Next.js frontend with `NEXT_PUBLIC_API_URL=http://localhost:8000`
+and allow microphone access for `http://localhost:3000` when starting a Test Call.
+
 Tests: `cd backend && uv run pytest -q` · Reseed: `uv run python -m app.seed.loader [--reset]` · UI without backend: `NEXT_PUBLIC_MOCK=1 npm run dev`
 
 ## Architecture
