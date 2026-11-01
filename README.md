@@ -38,9 +38,14 @@ python -m pip install -e ".[dev]"
 python -m pytest
 python -m artemisVoice.Evals.cli --scenario scenarios/healthy_confirmation.json
 python -m artemisVoice.Evals.cli --seeded-suite seeded_bugs/initial_suite.json --split blind
+uvicorn artemisVoice.Evals.api.app:app --reload
 ```
 
 The CLI writes a replayable run to SQLite and prints the structured result. The
 seeded-suite command prints a split-specific confusion matrix and measured
 self-validation metrics. The next milestone generalizes the first
 counterfactual arm to other pipeline layers.
+
+The API exposes the same workflow through `/runs`,
+`/runs/{run_id}/diagnoses/stt`, and approval-gated `/patches` endpoints. It is
+the integration surface for the voice agent under `backend/artemisVoice`.

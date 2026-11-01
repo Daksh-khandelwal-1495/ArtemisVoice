@@ -1,0 +1,129 @@
+from __future__ import annotations
+
+from pathlib import Path
+from uuid import UUID
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
+from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Diagnosis
+from artemisVoice.Evals.domain.models import Scenario
+from artemisVoice.Evals.patches.service import (
+    PatchGateResult,
+    PatchProposal,
+    PatchService,
+)
+from artemisVoice.Evals.storage.sqlite import SQLiteTraceStore
+from artemisVoice.Evals.tracing.contracts import RunTrace, TraceContractError
+
+
+class DiagnosisRequest(BaseModel):
+    turn_index: int = Field(ge=0)
+    trials: int = Field(default=5, ge=1)
+
+
+class PatchRequest(BaseModel):
+    source_run_id: UUID
+    turn_index: int = Field(ge=0)
+    keyword: str = Field(min_length=1)
+
+
+class PatchValidationRequest(BaseModel):
+    failing: list[Scenario] = Field(min_length=1)
+    held_out: list[Scenario] = Field(min_length=1)
+    regression: list[Scenario] = Field(min_length=1)
+
+
+def create_app(database_path: Path | str = "artemis_voice.db") -> FastAPI:
+    """Create a local-first API instance; no vendor credentials are required for the MVP."""
+
+    app = FastAPI(title="ArtemisVoice Evals", version="0.1.0")
+    store = SQLiteTraceStore(database_path)
+    agent = DeterministicConfirmationAgent()
+    engine = CounterfactualReplayEngine()
+    patch_service = PatchService()
+
+    def get_run(run_id: UUID) -> RunTrace:
+        try:
+            return store.get(run_id)
+        except TraceContractError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.post("/runs", response_model=RunTrace, status_code=201)
+    def create_run(scenario: Scenario) -> RunTrace:
+        trace = agent.run(scenario)
+        store.save(trace)
+        return trace
+
+    @app.get("/runs/{run_id}", response_model=RunTrace)
+    def read_run(run_id: UUID) -> RunTrace:
+        return get_run(run_id)
+
+    @app.post("/runs/{run_id}/diagnoses/stt", response_model=Diagnosis, status_code=201)
+    def diagnose_stt(run_id: UUID, request: DiagnosisRequest) -> Diagnosis:
+        try:
+            diagnosis = engine.diagnose_stt(
+                get_run(run_id), turn_index=request.turn_index, trials=request.trials
+            )
+            store.save_diagnosis(diagnosis)
+            return diagnosis
+        except (TraceContractError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.get("/runs/{run_id}/diagnoses/stt/{turn_index}", response_model=Diagnosis)
+    def read_stt_diagnosis(run_id: UUID, turn_index: int) -> Diagnosis:
+        try:
+            return store.get_diagnosis(run_id, turn_index, "stt_oracle")
+        except TraceContractError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.post("/patches/stt-keyword-boost", response_model=PatchProposal, status_code=201)
+    def create_stt_patch(request: PatchRequest) -> PatchProposal:
+        try:
+            diagnosis = store.get_diagnosis(request.source_run_id, request.turn_index, "stt_oracle")
+            patch = patch_service.propose_stt_keyword_boost(diagnosis, keyword=request.keyword)
+            store.save_patch(patch)
+            return patch
+        except TraceContractError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/patches/{patch_id}/approve", response_model=PatchProposal)
+    def approve_patch(patch_id: UUID) -> PatchProposal:
+        try:
+            patch = patch_service.approve(store.get_patch(patch_id))
+            store.save_patch(patch)
+            return patch
+        except TraceContractError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/patches/{patch_id}/validate", response_model=PatchGateResult, status_code=201)
+    def validate_patch(patch_id: UUID, request: PatchValidationRequest) -> PatchGateResult:
+        try:
+            patch = store.get_patch(patch_id)
+            result = patch_service.validate(
+                patch,
+                base_agent=agent,
+                failing=request.failing,
+                held_out=request.held_out,
+                regression=request.regression,
+            )
+            store.save_patch_gate_result(result)
+            return result
+        except TraceContractError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    return app
+
+
+app = create_app()

@@ -14,7 +14,9 @@ class SQLiteTraceStore:
     """Small SQLite store; JSON preserves the complete v1 trace contract verbatim."""
 
     def __init__(self, path: Path | str) -> None:
-        self._connection = sqlite3.connect(path)
+        # FastAPI executes synchronous routes in a worker thread. The MVP owns one
+        # local connection per app instance, so it must be usable from that thread.
+        self._connection = sqlite3.connect(path, check_same_thread=False)
         self._connection.execute(
             "CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, trace_json TEXT NOT NULL)"
         )

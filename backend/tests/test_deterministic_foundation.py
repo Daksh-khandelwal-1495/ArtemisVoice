@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
+from artemisVoice.Evals.api.app import create_app
 from artemisVoice.Evals.causal.locator import CandidateReason, CandidateTurnLocator
 from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Verdict
 from artemisVoice.Evals.domain.models import Scenario
@@ -17,6 +18,7 @@ from artemisVoice.Evals.evaluation.self_validation import (
 from artemisVoice.Evals.patches.service import PatchService, PatchStatus
 from artemisVoice.Evals.storage.sqlite import SQLiteTraceStore
 from artemisVoice.Evals.tracing.contracts import Layer, RunTrace
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 SCENARIOS = Path(__file__).resolve().parents[2] / "scenarios"
@@ -187,3 +189,33 @@ def test_blind_seeded_suite_reports_attribution_and_false_blame_metrics() -> Non
         ExpectedCause.STT: {ExpectedCause.STT: 1},
         ExpectedCause.NOT_THE_AGENT: {ExpectedCause.NOT_THE_AGENT: 2},
     }
+
+
+def test_api_executes_the_full_approved_patch_workflow(tmp_path: Path) -> None:
+    client = TestClient(create_app(tmp_path / "api.db"))
+    failing = json.loads((SCENARIOS / "stt_confusion_confirmation.json").read_text(encoding="utf-8"))
+    held_out = json.loads(
+        (SCENARIOS / "stt_confusion_confirmation_heldout.json").read_text(encoding="utf-8")
+    )
+    healthy = json.loads((SCENARIOS / "healthy_confirmation.json").read_text(encoding="utf-8"))
+
+    run = client.post("/runs", json=failing)
+    assert run.status_code == 201
+    run_id = run.json()["id"]
+    diagnosis = client.post(f"/runs/{run_id}/diagnoses/stt", json={"turn_index": 0})
+    assert diagnosis.status_code == 201
+    assert diagnosis.json()["verdict"] == "proven"
+    patch = client.post(
+        "/patches/stt-keyword-boost",
+        json={"source_run_id": run_id, "turn_index": 0, "keyword": "B8"},
+    )
+    assert patch.status_code == 201
+    approved = client.post(f"/patches/{patch.json()['id']}/approve")
+    assert approved.status_code == 200
+    result = client.post(
+        f"/patches/{patch.json()['id']}/validate",
+        json={"failing": [failing], "held_out": [held_out], "regression": [healthy]},
+    )
+
+    assert result.status_code == 201
+    assert result.json()["passed"] is True
