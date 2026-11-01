@@ -51,6 +51,8 @@ The API exposes the same workflow through `/runs`,
 the integration surface for the voice agent under `backend/artemisVoice`.
 See [the agent integration contract](docs/VOICE_AGENT_INTEGRATION.md) before
 wiring a Pipecat or other live agent into the evaluator.
+For the reasoning behind the workflow and an end-to-end example, read
+[ArtemisVoice from first principles](docs/FIRST_PRINCIPLES.md).
 
 The evaluator also includes four caller-valid red-team mutation operators:
 hard entities, self-correction, policy boundaries, and intent switches.
