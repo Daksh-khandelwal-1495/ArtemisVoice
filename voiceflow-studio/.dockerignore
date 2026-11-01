@@ -1,0 +1,37 @@
+# Build context for voiceflow-studio/backend/Dockerfile (context = voiceflow-studio/).
+# The image needs backend/ and the Pipecat source in vendor/pipecat only.
+
+# Secrets: backend/.env holds provider keys and must never be baked into an image.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Host environments and caches
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/*.egg-info
+
+# Runtime data
+backend/artifacts
+**/*.sqlite3
+
+# The Next.js UI has its own context (voiceflow-studio/frontend).
+frontend
+
+# Pipecat: keep src/, pyproject.toml, README.md and LICENSE (needed to build the
+# editable package); drop the heavy non-runtime trees.
+vendor/pipecat/.git
+vendor/pipecat/.github
+vendor/pipecat/examples
+vendor/pipecat/tests
+vendor/pipecat/docs
+vendor/pipecat/evals
+vendor/pipecat/scripts
+vendor/pipecat/changelog
+vendor/pipecat/CHANGELOG.md
+vendor/pipecat/uv.lock

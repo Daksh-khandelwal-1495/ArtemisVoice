@@ -1,10 +1,37 @@
+# Build context for the root (Artemis API) image. Only pyproject.toml and
+# backend/ are copied; everything else is excluded so the context stays small
+# and secrets never reach the daemon.
 .git
-.env
+.github
+.venv
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
 .pytest_cache
 .ruff_cache
+.coverage
+htmlcov
+
+# Secrets: never send env files to the daemon.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Other apps have their own build contexts.
 frontend
+voiceflow-studio
+scripts
+docs
+*.docx
+Makefile
+
+# Local data
 data
-artemis_voice.db
+audio
+reports
+artifacts
 *.db
-__pycache__
-**/__pycache__
+artemis_voice.db
+.dev-logs
