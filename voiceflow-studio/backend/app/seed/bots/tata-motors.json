@@ -705,7 +705,7 @@
           "y": 180
         },
         "task_prompt": "",
-        "say_on_enter": "Your test drive is booked. You will get an SMS confirmation shortly, and the dealer will call to confirm. Thank you for choosing Tata Motors, have a great day!",
+        "say_on_enter": "Your {{car_model}} test drive at {{dealer_name}} is booked. You will get an SMS confirmation shortly, and the dealer will call to confirm. Thank you for choosing Tata Motors, have a great day!",
         "fields": [],
         "transitions": [],
         "settings": {},

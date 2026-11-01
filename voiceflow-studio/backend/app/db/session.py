@@ -40,6 +40,9 @@ async def get_db() -> AsyncIterator[AsyncSession]:
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        from app.db.models import ensure_additive_columns
+
+        await conn.run_sync(ensure_additive_columns)
 
 
 async def drop_db() -> None:

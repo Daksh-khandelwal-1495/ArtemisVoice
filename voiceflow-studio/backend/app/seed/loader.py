@@ -161,6 +161,16 @@ async def seed_all(
         except (ValidationError, Exception) as e:  # noqa: BLE001
             logger.error(f"seed: bot {path.name} failed: {e}")
             summary["errors"].append(path.name)
+    try:  # demo test oracles + fault variants (app/seed/demos, replay agent)
+        from app.seed.demos import seed_demos
+
+        async with db.begin_nested():
+            demos = await seed_demos(db)
+        if demos:
+            summary["demo_oracles"] = demos
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"seed: demo oracles failed: {e}")
+        summary["errors"].append("demos")
     await db.commit()
     return summary
 

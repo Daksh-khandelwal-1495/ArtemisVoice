@@ -53,6 +53,16 @@
       "open_hours": "10:00-19:00"
     },
     {
+      "dealer_id": "TD041",
+      "name": "Camp Auto Plaza (Demo) - Camp",
+      "city": "Pune",
+      "pincode": "411001",
+      "address": "East Street, Camp, Pune - 411001",
+      "phone": "020-5550-0041",
+      "ev_ready": "yes",
+      "open_hours": "10:00-19:00"
+    },
+    {
       "dealer_id": "TD005",
       "name": "Deccan Drive (Demo) - Baner",
       "city": "Pune",
