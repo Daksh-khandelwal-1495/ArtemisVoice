@@ -82,7 +82,7 @@ class CallSession(Base):
     flow_version_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("flow_versions.id", ondelete="SET NULL"), nullable=True
     )
-    mode: Mapped[str] = mapped_column(String(16), default="draft")  # draft|published
+    mode: Mapped[str] = mapped_column(String(16), default="draft")  # draft|published|simulation|replay
     # active|completed|transferred|abandoned|error
     status: Mapped[str] = mapped_column(String(16), default="active", index=True)
     end_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -92,6 +92,15 @@ class CallSession(Base):
     started_at: Mapped[datetime] = _ts(index=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_secs: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # --- replay sandbox / test oracle (INTEGRATION_CONTRACT §2-§3); all optional ---
+    seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fault_profile: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    oracle_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)  # test_oracles.id
+    turn_truths: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)  # {turn_index: text}
+    dataset_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)  # dataset_snapshots.id
+    replay_of_session_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
+    intervention: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    patch_candidate_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
 
 
 class SessionEvent(Base):
@@ -145,3 +154,92 @@ class DatasetRow(Base):
         Uuid, ForeignKey("datasets.id", ondelete="CASCADE"), index=True
     )
     data: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+
+
+# --------------------------------------------------------------------------- replay sandbox
+
+
+class DatasetSnapshot(Base):
+    """Frozen copy of every dataset ({name: rows}) taken at session start; replays read lookups
+    from here, never from the live tables. Identical content is stored once (content_hash)."""
+
+    __tablename__ = "dataset_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = _ts()
+    content_hash: Mapped[str] = mapped_column(String(64), index=True)
+    datasets: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+
+
+class TestOracle(Base):
+    """Expected outcome of a scripted caller journey (+ optional demo fault profile)."""
+
+    __test__ = False  # not a pytest test class
+    __tablename__ = "test_oracles"
+    __table_args__ = (UniqueConstraint("bot_id", "slug", name="uq_test_oracles_bot_slug"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    bot_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("bots.id", ondelete="CASCADE"), index=True)
+    slug: Mapped[str] = mapped_column(String(80), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    caller_turns: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    expected_fields: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    expected_lookup: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    expected_end_node: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    expected_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    expected_bot_response: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    fault_profile: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    tags: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    created_at: Mapped[datetime] = _ts()
+    updated_at: Mapped[datetime] = _ts(onupdate=utcnow)
+
+
+class PatchCandidate(Base):
+    """A bounded repair proposal materialised as a DRAFT flow version + config copy.
+    Never published until promoted with an explicit human approval."""
+
+    __tablename__ = "patch_candidates"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    bot_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("bots.id", ondelete="CASCADE"), index=True)
+    base_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("flow_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    candidate_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("flow_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    patch: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)  # candidate BotConfig
+    graph_diff: Mapped[list[dict[str, Any]]] = mapped_column(JSONType, default=list)
+    status: Mapped[str] = mapped_column(String(16), default="draft")  # draft|promoted|rejected
+    approved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = _ts()
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+def ensure_additive_columns(sync_conn) -> list[str]:
+    """Tiny forward-only migration for databases created before additive columns existed.
+
+    ``create_all`` never alters existing tables, so nullable columns added to a model later
+    (e.g. ``call_sessions.seed``) are added here with ``ALTER TABLE ... ADD COLUMN``.
+    Returns the list of ``table.column`` added. Safe to call repeatedly.
+    """
+    from sqlalchemy import inspect, text
+    from sqlalchemy.schema import CreateColumn
+
+    insp = inspect(sync_conn)
+    existing_tables = set(insp.get_table_names())
+    added: list[str] = []
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        have = {c["name"] for c in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name in have or not col.nullable or col.primary_key:
+                continue
+            ddl = str(CreateColumn(col).compile(dialect=sync_conn.dialect))
+            ddl = ddl.split(" REFERENCES ")[0]
+            sync_conn.execute(text(f'ALTER TABLE {table.name} ADD COLUMN {ddl}'))
+            added.append(f"{table.name}.{col.name}")
+    return added

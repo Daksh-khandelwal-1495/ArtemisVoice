@@ -1,3 +1,13 @@
+# Standalone VoiceFlow Studio stack: Postgres (:5433) + Studio API (:8000).
+# For the whole platform (Studio UI, Artemis API and dashboard too) use the root
+# compose.yaml instead: `make up` from the repository root. Do not run both at
+# once; they publish the same host ports.
+#
+#   git submodule update --init vendor/pipecat   # from the repo root: make setup
+#   docker compose up -d postgres                # Postgres only (host-run API)
+#   docker compose up --build -d                 # Postgres + API in Docker
+name: voiceflow-studio
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,19 +18,35 @@ services:
     ports: ["5433:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U voiceflow"]
+      test: ["CMD-SHELL", "pg_isready -U voiceflow -d voiceflow"]
       interval: 3s
       retries: 20
+
   backend:
-    container_name: artemis-voiceflow-backend
     build:
       context: .
       dockerfile: backend/Dockerfile
     env_file:
-      - backend/.env
+      - path: backend/.env
+        required: false
+    environment:
+      # backend/.env points at localhost:5433 for host runs; inside the compose
+      # network Postgres is postgres:5432.
+      DATABASE_URL: postgresql+asyncpg://voiceflow:voiceflow@postgres:5432/voiceflow
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      ARTEMIS_API_URL: ${ARTEMIS_API_URL:-http://host.docker.internal:8001}
+      ARTEMIS_DASHBOARD_URL: http://localhost:5173
+      ARTIFACTS_DIR: /data/artifacts
+      API_CALL_MOCK: ${API_CALL_MOCK:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes: [artifacts:/data/artifacts]
     depends_on:
       postgres:
         condition: service_healthy
     ports: ["8000:8000"]
+
 volumes:
   pgdata:
+  artifacts:

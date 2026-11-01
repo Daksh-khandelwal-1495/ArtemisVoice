@@ -127,7 +127,9 @@ async def test_artemis_evidence_export_is_honest_about_replay_gaps(client, db):
     evidence = response.json()
     assert evidence["schema_version"] == "voiceflow-artemis-evidence/v1"
     assert evidence["replay_eligible"] is False
-    assert "caller audio artifact with an immutable checksum" in evidence["replay_blockers"]
+    # Blockers come from the trace builder's honest `missing` list: no turn traces, no oracle.
+    assert evidence["replay_blockers"]
+    assert any("oracle" in b for b in evidence["replay_blockers"])
     assert len(evidence["turns"]) == 1
     turn = evidence["turns"][0]
     assert turn["speech_to_text"]["final_hypothesis"] == "My pincode is 411001."

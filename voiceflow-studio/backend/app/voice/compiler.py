@@ -254,6 +254,11 @@ class RuntimeHooks:
     async def http_request(self, method: str, url: str, headers: dict[str, str], body: Any, timeout: float) -> Any:
         raise RuntimeError("HTTP not available")
 
+    async def mock_api_call(self, node_id: str, method: str, url: str, body: Any, mock_result: Any) -> Any:
+        """Result of a *mocked* api_call (``API_CALL_MOCK`` / empty url). The replay sandbox
+        overrides this for fault injection (raise -> ``<save_as>_error``) or oracle results."""
+        return mock_result
+
     async def transfer(self, node_id: str, transfer_number: str | None) -> None: ...
 
     async def end_call(self, flow_manager: Any, text: str | None) -> None:
@@ -270,6 +275,13 @@ class Terminal:
     end_reason: str | None
     text: str | None
     node_id: str | None = None
+
+
+def _no_response() -> Any:
+    """pipecat.flows sentinel: keep the result in context but stay silent until the caller speaks."""
+    from pipecat.flows import NO_RESPONSE
+
+    return NO_RESPONSE
 
 
 WAIT_FOR_CALLER = (
@@ -766,6 +778,10 @@ class FlowRuntime:
         result: Any = None
         if mocked:
             result = render_obj(cfg.mock_response, self.vars) if cfg.mock_response is not None else {"ok": True}
+            try:
+                result = await self.hooks.mock_api_call(node.id, cfg.method, url, body, result)
+            except Exception as e:  # noqa: BLE001 - injected / sandbox failure
+                result, error = None, (str(e) or type(e).__name__)
         else:
             try:
                 result = await self.hooks.http_request(cfg.method, url, headers, body, cfg.timeout_secs)
@@ -801,7 +817,7 @@ class FlowRuntime:
         if self.require_grounding:
             if not self.caller_has_spoken:
                 await self._event("validation_error", node.id, {"rejected": "no_caller_input"})
-                return {"status": "waiting_for_caller", "message": WAIT_FOR_CALLER}, None
+                return {"status": "waiting_for_caller", "message": WAIT_FOR_CALLER}, _no_response()
             if len(self.user_utterances) == self._turns_at_entry:
                 # Nothing said since entering this node: only keep values the caller said earlier.
                 ungrounded = [k for k, v in args.items() if k != "confirmed" and not is_empty(v) and not self._is_grounded(v)]
@@ -810,7 +826,7 @@ class FlowRuntime:
                 if ungrounded:
                     await self._event("validation_error", node.id, {"rejected_ungrounded": ungrounded})
                 if all(is_empty(v) for k, v in args.items() if k != "confirmed"):
-                    return {"status": "waiting_for_caller", "message": WAIT_FOR_CALLER}, None
+                    return {"status": "waiting_for_caller", "message": WAIT_FOR_CALLER}, _no_response()
         today = self.today()
         confirmed_arg = args.get("confirmed")
         confirmed = confirmed_arg is True or (isinstance(confirmed_arg, str) and confirmed_arg.lower() in ("true", "yes"))
@@ -934,8 +950,11 @@ class FlowRuntime:
     def _make_goto_handler(self, node: FlowNode, t: Transition):
         async def handler(args: dict[str, Any], flow_manager: Any = None):
             await self._event("function_call", node.id, {"function": f"goto_{t.target}", "transition_id": t.id})
-            if self.require_grounding and not self.caller_has_spoken:
-                return await self.wrap(flow_manager, ({"status": "waiting_for_caller", "message": WAIT_FOR_CALLER}, None))
+            # Moving on needs the caller's answer to *this* step (e.g. "yes, book it"), not an earlier turn.
+            if self.require_grounding and (not self.caller_has_spoken
+                                           or len(self.user_utterances) == self._turns_at_entry):
+                return await self.wrap(flow_manager, ({"status": "waiting_for_caller", "message": WAIT_FOR_CALLER},
+                                                      _no_response()))
             return await self.wrap(flow_manager, (None, await self.enter(t.target)))
 
         handler.__name__ = f"goto_{t.target}"

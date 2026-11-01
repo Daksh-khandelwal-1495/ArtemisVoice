@@ -349,13 +349,16 @@ export type SessionEventType =
   | "idle"
   | "end";
 
+/** `replay` sessions are produced by the Studio replay sandbox (hidden from lists by default). */
+export type SessionMode = "draft" | "published" | "simulation" | "replay";
+
 export interface SessionListItem {
   id: string;
   bot_id: string;
   bot_name: string;
   status: SessionStatus;
   end_reason: string | null;
-  mode: "draft" | "published";
+  mode: SessionMode;
   started_at: string;
   ended_at: string | null;
   duration_secs: number | null;
@@ -395,7 +398,7 @@ export interface SessionDetail {
   flow_version?: number | null;
   masked?: boolean;
   flow_version_id: string | null;
-  mode: "draft" | "published";
+  mode: SessionMode;
   status: SessionStatus;
   end_reason: string | null;
   current_node: string | null;
@@ -429,3 +432,186 @@ export type ServerMessage =
   | { type: "validation"; node_id: string; errors: Record<string, string> }
   | { type: "event"; event: SessionEventType | "transfer" | string; payload: Record<string, unknown> }
   | { type: "ended"; status: SessionStatus; end_reason: string | null };
+
+/* ------------------------------------- Replay-grade trace (INTEGRATION_CONTRACT §1) */
+
+export interface TraceArtifact {
+  uri: string; // artifact://<session_id>/<file>
+  sha256: string;
+  media_type: string; // audio/wav | text/plain | application/json
+  bytes: number;
+}
+
+export type TraceLayerName = "caller" | "endpointing" | "speech_to_text" | "llm" | "tools" | "text_to_speech";
+
+export interface TraceLayer<I = Record<string, unknown>, O = Record<string, unknown>> {
+  started_at?: string | null;
+  finished_at?: string | null;
+  input?: I;
+  output?: O;
+  settings?: Record<string, unknown>;
+}
+
+export interface TraceToolCall {
+  name: string;
+  arguments?: Record<string, unknown>;
+  result?: unknown;
+}
+
+export interface TraceTurnLayers {
+  caller?: TraceLayer<Record<string, unknown>, { intended_text?: string | null; audio?: TraceArtifact | null }>;
+  endpointing?: TraceLayer<
+    Record<string, unknown>,
+    { speech_start_ms?: number | null; speech_end_ms?: number | null; interrupted_bot?: boolean; segment_text?: string | null }
+  >;
+  speech_to_text?: TraceLayer<
+    { audio?: TraceArtifact | null },
+    { interim_hypotheses?: string[]; final_hypothesis?: string | null; confidence?: number | null }
+  >;
+  llm?: TraceLayer<
+    { context_hash?: string; message_count?: number; node_id?: string | null },
+    { response_text?: string | null; tool_calls?: TraceToolCall[] }
+  >;
+  tools?: TraceLayer<
+    { calls?: Record<string, unknown>[] },
+    { results?: Record<string, unknown>[]; state_before?: Record<string, unknown>; state_after?: Record<string, unknown> }
+  >;
+  text_to_speech?: TraceLayer<{ text?: string | null }, { spoken_text?: string | null; audio?: TraceArtifact | null }>;
+}
+
+export interface TraceTurn {
+  index: number;
+  node_id: string | null;
+  state_before?: Record<string, unknown>;
+  state_after?: Record<string, unknown>;
+  layers: TraceTurnLayers;
+  missing?: string[];
+}
+
+export interface SessionTrace {
+  schema_version: string;
+  source: "live" | "simulation" | "replay";
+  session: {
+    id: string;
+    bot_id: string;
+    bot_slug?: string;
+    bot_name?: string;
+    flow_version_id?: string | null;
+    flow_version?: number | null;
+    mode: SessionMode;
+    status: SessionStatus;
+    end_reason?: string | null;
+    started_at?: string;
+    ended_at?: string | null;
+    duration_secs?: number | null;
+    config_snapshot?: Partial<BotConfig> | null;
+    config_hash?: string | null;
+  };
+  seed?: number | null;
+  fault_profile?: FaultProfile | null;
+  oracle_id?: string | null;
+  replay_ready: boolean;
+  missing: string[];
+  masked?: boolean;
+  captured?: { node_id: string | null; field_name: string; value: unknown; valid: boolean; attempts: number; captured_at: string | null }[];
+  dataset_snapshot_id?: string | null;
+  initial_state?: Record<string, unknown>;
+  turns: TraceTurn[];
+  final_state?: Record<string, unknown>;
+  end_node?: string | null;
+  events?: unknown[];
+}
+
+/* ----------------------------------------------- Test oracles (§2) */
+
+export interface ExpectedLookup {
+  dataset: string;
+  match: Record<string, string>;
+}
+
+export interface TestOracle {
+  id: string;
+  bot_id: string;
+  slug: string;
+  name: string;
+  caller_turns: string[];
+  expected_fields: Record<string, string>;
+  expected_lookup: ExpectedLookup | null;
+  expected_end_node: string | null;
+  expected_status: SessionStatus | null;
+  expected_bot_response: { contains: string[] } | null;
+  tags: string[];
+  /** Optional demo-variant fault profile (Tata demo variants carry one). */
+  fault_profile?: FaultProfile | null;
+  description?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type OracleBody = Partial<Omit<TestOracle, "id" | "bot_id" | "created_at">>;
+
+/* ------------------------------------- Fault profiles, replay, simulate (§3) */
+
+export interface TextReplacement {
+  from: string;
+  to: string;
+}
+
+export interface FaultProfile {
+  stt?: { replacements?: TextReplacement[]; keyword_protected?: boolean } | null;
+  endpointing?: { truncate_field: string; keep_chars: number; cutoff_below_stop_secs?: number } | null;
+  llm?: { swap_field?: { field: string; with_value_of: string } | null } | null;
+  tools?: { lookup_override?: { dataset: string | null; rows: Record<string, unknown>[] } | null; api_error?: boolean } | null;
+  tts?: { replacements?: TextReplacement[] } | null;
+}
+
+export type Intervention = "control" | "stt_oracle" | "endpointing_oracle" | "llm_oracle" | "tools_oracle" | "tts_oracle";
+
+export interface ReplayOutcome {
+  captured: Record<string, unknown>;
+  end_node: string | null;
+  status: SessionStatus | string | null;
+  spoken_texts?: string[];
+}
+
+export interface ReplayTrial {
+  trial: number;
+  passed: boolean;
+  outcome: ReplayOutcome;
+  run_trace?: unknown;
+  replay_session_id?: string | null;
+}
+
+export interface ReplayResponse {
+  session_id: string;
+  intervention: Intervention;
+  seed: number | null;
+  trials: ReplayTrial[];
+}
+
+export interface SimulateBody {
+  oracle_id: string;
+  fault_profile?: FaultProfile | null;
+  mode: "draft" | "published";
+  seed?: number;
+}
+
+export interface SimulateResponse {
+  session_id: string;
+  passed: boolean;
+  outcome: ReplayOutcome;
+  trace_url?: string;
+}
+
+export type PatchType = "stt_keyterm_boost" | "confirmation_readback" | "stricter_validation" | "fallback_route" | "vad_stop_secs";
+
+export interface PatchSpec {
+  type: PatchType;
+  params: Record<string, unknown>;
+}
+
+export interface PatchCandidate {
+  candidate_version_id: string;
+  config?: Partial<BotConfig>;
+  graph_diff?: unknown;
+}

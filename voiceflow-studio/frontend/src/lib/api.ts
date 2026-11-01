@@ -10,7 +10,16 @@ import type {
   FlowResponse,
   FlowValidationResult,
   Health,
+  Intervention,
+  OracleBody,
   PatchBotBody,
+  PatchCandidate,
+  PatchSpec,
+  ReplayResponse,
+  SessionTrace,
+  SimulateBody,
+  SimulateResponse,
+  TestOracle,
   ProviderCatalog,
   SaveFlowResponse,
   SessionDetail,
@@ -137,13 +146,58 @@ export const api = {
     request<DatasetRow>("POST", `/datasets/${enc(name)}/rows`, { data }),
   deleteRow: (name: string, rowId: string) => request<void>("DELETE", `/datasets/${enc(name)}/rows/${enc(rowId)}`),
 
-  sessions: (params: { bot_id?: string; status?: string; mode?: string; limit?: number; offset?: number }) => {
+  sessions: (params: { bot_id?: string; status?: string; mode?: string; include_replay?: boolean; limit?: number; offset?: number }) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v !== undefined && v !== "" && qs.set(k, String(v)));
     return request<SessionList>("GET", `/sessions?${qs}`);
   },
   session: (id: string, reveal = false) => request<SessionDetail>("GET", `/sessions/${enc(id)}${reveal ? "?reveal=true" : ""}`),
+
+  // Replay-grade trace + evidence (INTEGRATION_CONTRACT §1)
+  trace: (id: string) => request<SessionTrace>("GET", `/sessions/${enc(id)}/trace`),
+  artemisEvidence: (id: string) => request<Record<string, unknown>>("GET", `/sessions/${enc(id)}/artemis-evidence`),
+
+  // Test oracles (§2)
+  oracles: (botId: string) => request<TestOracle[]>("GET", `/bots/${enc(botId)}/oracles`),
+  oracle: (id: string) => request<TestOracle>("GET", `/oracles/${enc(id)}`),
+  createOracle: (botId: string, body: OracleBody) => request<TestOracle>("POST", `/bots/${enc(botId)}/oracles`, body),
+  patchOracle: (id: string, body: OracleBody) => request<TestOracle>("PATCH", `/oracles/${enc(id)}`, body),
+  deleteOracle: (id: string) => request<void>("DELETE", `/oracles/${enc(id)}`),
+  bindOracle: (sessionId: string, oracle_id: string, turn_truths?: Record<number, string>) =>
+    request<unknown>("POST", `/sessions/${enc(sessionId)}/oracle`, turn_truths ? { oracle_id, turn_truths } : { oracle_id }),
+
+  // Replay / simulate / patch candidates (§3)
+  replay: (sessionId: string, body: { intervention: Intervention; trials: number; seed?: number; patch?: PatchSpec }) =>
+    request<ReplayResponse>("POST", `/sessions/${enc(sessionId)}/replay`, body),
+  simulate: (botId: string, body: SimulateBody) => request<SimulateResponse>("POST", `/bots/${enc(botId)}/simulate`, body),
+  createPatchCandidate: (botId: string, patch: PatchSpec, base_version_id?: string) =>
+    request<PatchCandidate>("POST", `/bots/${enc(botId)}/patch-candidates`, base_version_id ? { patch, base_version_id } : { patch }),
 };
+
+/** Resolve `artifact://<session_id>/<file>` to the Studio artifact endpoint. */
+export function artifactUrl(uri: string): string {
+  const m = /^artifact:\/\/([^/]+)\/(.+)$/.exec(uri);
+  if (!m) return uri;
+  return `${API_URL}/api/artifacts/${enc(m[1])}/${m[2].split("/").map(enc).join("/")}`;
+}
+
+/** Artemis causal-debugger dashboard (root `frontend/`, Vite :5173, hash routes). */
+export const ARTEMIS_DASHBOARD_URL = (process.env.NEXT_PUBLIC_ARTEMIS_DASHBOARD_URL ?? "http://localhost:5173").replace(/\/$/, "");
+/** Deep link that asks the Artemis dashboard to import a Studio session. Change the route here only. */
+export const artemisImportUrl = (sessionId: string) => `${ARTEMIS_DASHBOARD_URL}/#/runs?import=${enc(sessionId)}`;
+
+/** Trigger a browser download of a JSON value. */
+export function downloadJson(filename: string, value: unknown) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 export const offerUrl = (botId: string, mode: "draft" | "published") =>
   `${API_URL}/api/bots/${enc(botId)}/offer?mode=${mode}`;

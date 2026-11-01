@@ -3,8 +3,14 @@
 import { ApiError } from "./api";
 import { lintFlow } from "./lint";
 import { mergeConfig, normalizeGraph } from "./defaults";
+import { applyIntervention, buildMockRun } from "./mock-trace";
+import { FAULT_PRESETS } from "./oracle";
 import type {
   BotDetail,
+  FaultProfile,
+  Intervention,
+  SessionTrace,
+  TestOracle,
   Dataset,
   DatasetRow,
   FlowGraph,
@@ -135,8 +141,97 @@ const state = (() => {
     ],
   };
   const s2: SessionDetail = { ...s1, id: id(), status: "abandoned", end_reason: "user_hangup", duration_secs: 41, events: s1.events.slice(0, 3), captured: s1.captured.slice(0, 1) };
-  return { bots, datasets, sessions: [s1, s2] };
+  const oracles = seedOracles(tata.bot.id);
+  return { bots, datasets, sessions: [s1, s2], oracles, traces: new Map<string, SessionTrace>() };
 })();
+
+function seedOracles(botId: string): TestOracle[] {
+  const base: Omit<TestOracle, "id" | "slug" | "name" | "tags" | "fault_profile"> = {
+    bot_id: botId,
+    caller_turns: [
+      "Hi, I'd like to book a test drive for the Nexon",
+      "Pune, 411001",
+      "The first one is fine",
+      "Tomorrow morning",
+      "Asha Sharma, 9876543210",
+      "Yes, please confirm",
+    ],
+    expected_fields: { car_model: "Nexon", city: "Pune", pincode: "411001", customer_name: "Asha Sharma", phone: "9876543210" },
+    expected_lookup: { dataset: "tata_dealers", match: { city: "Pune" } },
+    expected_end_node: "end_booked",
+    expected_status: "completed",
+    expected_bot_response: { contains: ["Nexon", "411001"] },
+    created_at: now(),
+  };
+  const preset = (pid: string): FaultProfile | null => FAULT_PRESETS.find((p) => p.id === pid)?.profile ?? null;
+  const mk = (slug: string, name: string, tags: string[], fault: FaultProfile | null): TestOracle => ({ ...structuredClone(base), id: id(), slug, name, tags, fault_profile: fault });
+  return [
+    mk("tata-happy", "Tata happy path", ["regression"], null),
+    mk("tata-stt", "Tata · STT pincode confusion", ["demo"], preset("stt-pincode")),
+    mk("tata-endpointing", "Tata · endpointing cut-off", ["demo"], preset("endpointing")),
+    mk("tata-llm", "Tata · LLM tool-argument error", ["demo"], preset("llm-swap")),
+    mk("tata-tools", "Tata · wrong dealer lookup", ["demo"], preset("tools-dealer")),
+    mk("tata-tts", "Tata · TTS misreads model", ["demo", "held-out"], preset("tts-nexon")),
+  ];
+}
+
+function runMock(bot: MockBot, oracle: TestOracle, fault: FaultProfile | null, opts: { source: "live" | "simulation" | "replay"; mode: SessionDetail["mode"]; seed: number; sid?: string }) {
+  const r = buildMockRun({
+    sessionId: opts.sid ?? id(),
+    botId: bot.bot.id,
+    botName: bot.bot.name,
+    botSlug: bot.bot.slug,
+    graph: latest(bot).graph,
+    keywords: bot.bot.config?.stt?.keywords ?? [],
+    oracle,
+    fault,
+    source: opts.source,
+    mode: opts.mode,
+    seed: opts.seed,
+    dealers: state.datasets.find((d) => d.name === "tata_dealers")?.rows.map((r) => r.data) ?? [],
+  });
+  r.session.config_snapshot = bot.bot.config;
+  r.session.flow_version_id = latest(bot).id;
+  r.trace.session.config_snapshot = bot.bot.config;
+  state.sessions.unshift(r.session);
+  state.traces.set(r.session.id, r.trace);
+  bot.bot.session_count += 1;
+  bot.bot.last_session_at = now();
+  return r;
+}
+
+let seeded = false;
+/** Seed one live (not replay-ready) and one simulated (replay-ready, failing) Tata session. */
+function ensureSeedRuns() {
+  if (seeded) return;
+  seeded = true;
+  const tata = state.bots[0];
+  const happy = state.oracles.find((o) => o.slug === "tata-happy")!;
+  const stt = state.oracles.find((o) => o.slug === "tata-stt")!;
+  // Stable ids so mock deep links (/sessions/mock-live?tab=trace) survive page reloads.
+  const live = runMock(tata, happy, null, { source: "live", mode: "draft", seed: 7, sid: "mock-live" });
+  live.trace.oracle_id = null;
+  live.trace.missing.push("no test oracle bound");
+  runMock(tata, stt, stt.fault_profile ?? null, { source: "simulation", mode: "simulation", seed: 7, sid: "mock-sim-stt" });
+}
+
+function traceFor(s: SessionDetail): SessionTrace {
+  const t = state.traces.get(s.id);
+  if (t) return t;
+  return {
+    schema_version: "voiceflow-trace/v1",
+    source: "live",
+    session: { id: s.id, bot_id: s.bot_id, bot_name: s.bot_name, bot_slug: s.bot_slug, flow_version: s.flow_version, mode: s.mode, status: s.status, end_reason: s.end_reason, started_at: s.started_at, ended_at: s.ended_at },
+    seed: null,
+    fault_profile: null,
+    oracle_id: null,
+    replay_ready: false,
+    missing: ["session has no trace_turn events (recorded before tracing was enabled)", "no test oracle bound"],
+    turns: [],
+    final_state: s.variables ?? {},
+    end_node: s.current_node,
+  };
+}
 
 function findBot(key: string): MockBot {
   const b = state.bots.find((x) => x.bot.id === key || x.bot.slug === key);
@@ -255,6 +350,50 @@ export async function mockRequest(method: string, fullPath: string, body: unknow
       return v;
     }
     if (sub === "offer") throw new ApiError(503, "Mock mode: voice calls require the real backend.");
+    if (sub === "oracles") {
+      if (method === "GET") return state.oracles.filter((o) => o.bot_id === bot.bot.id);
+      if (method === "POST") {
+        const slug = (b.slug as string) || String(b.name ?? "oracle").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        if (state.oracles.some((o) => o.bot_id === bot.bot.id && o.slug === slug)) throw new ApiError(409, `Oracle slug '${slug}' already exists`);
+        const o: TestOracle = {
+          caller_turns: [],
+          expected_fields: {},
+          expected_lookup: null,
+          expected_end_node: null,
+          expected_status: "completed",
+          expected_bot_response: null,
+          tags: [],
+          fault_profile: null,
+          ...(b as Partial<TestOracle>),
+          id: id(),
+          bot_id: bot.bot.id,
+          slug,
+          name: String(b.name ?? slug),
+          created_at: now(),
+        };
+        state.oracles.push(o);
+        return o;
+      }
+    }
+    if (sub === "simulate") {
+      const o = state.oracles.find((x) => x.id === b.oracle_id);
+      if (!o) throw new ApiError(404, "Oracle not found");
+      if (b.mode === "published" && !bot.published_version_id) throw new ApiError(409, "Bot has no published version");
+      const r = runMock(bot, o, (b.fault_profile as FaultProfile | null | undefined) ?? null, { source: "simulation", mode: "simulation", seed: Number(b.seed ?? 7) });
+      return { session_id: r.session.id, passed: r.passed, outcome: r.outcome, trace_url: `/api/sessions/${r.session.id}/trace` };
+    }
+    if (sub === "patch-candidates") return { candidate_version_id: id(), config: bot.bot.config, graph_diff: { patch: b.patch } };
+  }
+
+  if (seg[0] === "oracles") {
+    const o = state.oracles.find((x) => x.id === seg[1]);
+    if (!o) throw new ApiError(404, "Oracle not found");
+    if (method === "GET") return o;
+    if (method === "PATCH") return Object.assign(o, b, { id: o.id, bot_id: o.bot_id });
+    if (method === "DELETE") {
+      state.oracles = state.oracles.filter((x) => x !== o);
+      return undefined;
+    }
   }
 
   if (seg[0] === "datasets") {
@@ -280,8 +419,11 @@ export async function mockRequest(method: string, fullPath: string, body: unknow
   }
 
   if (seg[0] === "sessions") {
+    ensureSeedRuns();
     if (seg.length === 1) {
       let list = state.sessions;
+      if (q.get("include_replay") !== "true" && q.get("mode") !== "replay") list = list.filter((s) => s.mode !== "replay");
+      if (q.get("mode")) list = list.filter((s) => s.mode === q.get("mode"));
       if (q.get("bot_id")) list = list.filter((s) => s.bot_id === q.get("bot_id"));
       if (q.get("status")) list = list.filter((s) => s.status === q.get("status"));
       const items: SessionListItem[] = list.map((s) => ({
@@ -301,6 +443,35 @@ export async function mockRequest(method: string, fullPath: string, body: unknow
     }
     const s = state.sessions.find((x) => x.id === seg[1]);
     if (!s) throw new ApiError(404, "Session not found");
+    if (seg[2] === "trace") return traceFor(s);
+    if (seg[2] === "artemis-evidence") {
+      const t = traceFor(s);
+      return { schema_version: "voiceflow-artemis-evidence/v1", replay_eligible: t.replay_ready, missing: t.missing, session: t.session, turns: t.turns, variables: s.variables };
+    }
+    if (seg[2] === "oracle" && method === "POST") {
+      const o = state.oracles.find((x) => x.id === b.oracle_id);
+      if (!o) throw new ApiError(404, "Oracle not found");
+      const t = traceFor(s);
+      t.oracle_id = o.id;
+      t.missing = t.missing.filter((m) => m !== "no test oracle bound");
+      t.replay_ready = t.missing.length === 0;
+      state.traces.set(s.id, t);
+      return { session_id: s.id, oracle_id: o.id };
+    }
+    if (seg[2] === "replay" && method === "POST") {
+      const t = traceFor(s);
+      if (!t.replay_ready) throw new ApiError(422, { message: "Session is not replay-ready", missing: t.missing });
+      const o = state.oracles.find((x) => x.id === t.oracle_id);
+      if (!o) throw new ApiError(422, "Bind a test oracle before replaying");
+      const bot = findBot(s.bot_id);
+      const iv = (b.intervention as Intervention) ?? "control";
+      const seed = Number(b.seed ?? t.seed ?? 7);
+      const trials = Array.from({ length: Math.min(10, Math.max(1, Number(b.trials ?? 1))) }, (_, i) => {
+        const r = runMock(bot, o, applyIntervention(t.fault_profile ?? null, iv), { source: "replay", mode: "replay", seed });
+        return { trial: i, passed: r.passed, outcome: r.outcome, replay_session_id: r.session.id };
+      });
+      return { session_id: s.id, intervention: iv, seed, trials };
+    }
     return s;
   }
 

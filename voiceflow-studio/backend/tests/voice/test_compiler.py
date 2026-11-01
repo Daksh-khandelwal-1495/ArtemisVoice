@@ -441,7 +441,7 @@ async def test_grounding_rejects_values_before_caller_speaks():
     await rt.initial()
     submit = tools(rt.compile_node(rt.nodes["details"]))["submit_details"].handler
     res, nxt = await submit({"name": "Ravi"}, None)
-    assert res["status"] == "waiting_for_caller" and nxt is None
+    assert res["status"] == "waiting_for_caller" and nxt is NO_RESPONSE
     assert "name" not in rt.vars and rt.field_failures == {}
 
 
@@ -470,7 +470,25 @@ async def test_goto_blocked_until_caller_speaks():
     cfg = await rt.initial()
     goto = tools(cfg)["goto_details"].handler
     res, nxt = await goto({}, None)
-    assert res["status"] == "waiting_for_caller" and nxt is None
+    assert res["status"] == "waiting_for_caller" and nxt is NO_RESPONSE
     rt.note_user_turn("I want to book a test drive")
     res, nxt = await goto({}, None)
     assert nxt is not None and rt.current_node_id == "details"
+
+
+async def test_goto_needs_caller_answer_after_entering_node():
+    """A step entered mid-turn can't be left until the caller answers it (no self-confirmation)."""
+    confirm = node("confirm", "conversation", task_prompt="Read back the booking and ask if it is correct.",
+                   transitions=[T("done", "intent", "Caller confirms the details")])
+    rt = runtime([node("start", "start", transitions=[T("confirm", "intent", "wants to book")]), confirm, END],
+                 require_grounding=True)
+    cfg = await rt.initial()
+    rt.note_user_turn("Yes, book it")
+    _, nxt = await tools(cfg)["goto_confirm"].handler({}, None)   # answered start → may move on
+    assert rt.current_node_id == "confirm"
+    goto_done = tools(rt.compile_node(rt.nodes["confirm"]))["goto_done"].handler
+    res, nxt = await goto_done({}, None)                          # same turn: must wait for the answer
+    assert res["status"] == "waiting_for_caller" and nxt is NO_RESPONSE and rt.current_node_id == "confirm"
+    rt.note_user_turn("Haan, sab sahi hai")
+    res, nxt = await goto_done({}, None)
+    assert rt.current_node_id == "done"

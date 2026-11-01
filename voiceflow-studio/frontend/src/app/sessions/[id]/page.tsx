@@ -1,13 +1,15 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, Bot as BotIcon, CheckCircle2, Database, Eye, EyeOff, Lock, Moon, User, Webhook, XCircle, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, AudioLines, Bot as BotIcon, CheckCircle2, Database, ExternalLink, Eye, EyeOff, LayoutList, Lock, Moon, User, Webhook, XCircle, Zap } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { Suspense, useState, type ReactNode } from "react";
 import useSWR from "swr";
-import { Badge, Button, Card, ErrorBox, SectionTitle, Spinner, cn, statusTone } from "@/components/ui";
+import { CallRecording } from "@/components/session/call-recording";
+import { TraceView } from "@/components/session/trace-view";
+import { Badge, Button, Card, ErrorBox, SectionTitle, Spinner, Tabs, cn, statusTone } from "@/components/ui";
 import { fmtDuration } from "@/components/workspace/sessions-tab";
-import { api } from "@/lib/api";
+import { api, artemisImportUrl } from "@/lib/api";
 import type { SessionDetail, SessionEvent } from "@/lib/types";
 
 const str = (v: unknown) => (v == null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v));
@@ -67,8 +69,32 @@ function Meta({ k, v }: { k: string; v: ReactNode }) {
   );
 }
 
+type SessionTab = "overview" | "trace";
+
 export default function SessionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 items-center justify-center gap-2 text-muted">
+          <Spinner /> Loading…
+        </div>
+      }
+    >
+      <SessionView />
+    </Suspense>
+  );
+}
+
+function SessionView() {
   const { id } = useParams<{ id: string }>();
+  const params = useSearchParams();
+  const [tab, setTabState] = useState<SessionTab>(params.get("tab") === "trace" ? "trace" : "overview");
+  const setTab = (t: SessionTab) => {
+    setTabState(t);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", t);
+    window.history.replaceState(null, "", url);
+  };
   const [reveal, setReveal] = useState(false);
   const { data: s, error, mutate } = useSWR<SessionDetail>(`session:${id}:${reveal}`, () => api.session(id, reveal), { keepPreviousData: true });
 
@@ -98,10 +124,25 @@ export default function SessionPage() {
           <h1 className="text-lg font-semibold">Session</h1>
           <span className="font-mono text-[12px] text-muted">{s.id}</span>
           <Badge tone={statusTone(s.status)}>{s.status}</Badge>
-          <Badge tone={s.mode === "published" ? "green" : "gray"}>{s.mode}</Badge>
+          <Badge tone={s.mode === "published" ? "green" : s.mode === "replay" ? "violet" : "gray"}>{s.mode}</Badge>
           {s.flow_version != null && <Badge>flow v{s.flow_version}</Badge>}
           {s.end_reason && <span className="font-mono text-[12px] text-muted">· {s.end_reason}</span>}
+          <a href={artemisImportUrl(s.id)} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-[12px] text-muted hover:text-brand">
+            <ExternalLink className="size-3.5" /> Open in Artemis
+          </a>
         </div>
+        <CallRecording sessionId={s.id} mode={s.mode} />
+        <Tabs
+          className="mb-4 border-b border-border"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { value: "overview", label: "Overview", icon: <LayoutList className="size-3.5" /> },
+            { value: "trace", label: "Trace", icon: <AudioLines className="size-3.5" /> },
+          ]}
+        />
+        {tab === "trace" && <TraceView sessionId={s.id} botId={s.bot_id} />}
+        {tab === "overview" && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px]">
           <Card className="p-4">
             <SectionTitle>Timeline</SectionTitle>
@@ -176,6 +217,7 @@ export default function SessionPage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

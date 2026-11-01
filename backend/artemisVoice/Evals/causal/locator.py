@@ -4,12 +4,18 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from artemisVoice.Evals.tracing.contracts import Layer, RunTrace
+from artemisVoice.Evals.tracing.contracts import (
+    Layer,
+    RunTrace,
+    TraceSource,
+    normalise_text,
+)
 
 
 class CandidateReason(StrEnum):
     ENTITY_MISMATCH = "entity_mismatch"
     FIRST_INCORRECT_STATE = "first_incorrect_state"
+    SPOKEN_MISMATCH = "spoken_mismatch"
 
 
 class CandidateTurn(BaseModel):
@@ -39,26 +45,59 @@ class CandidateTurnLocator:
         candidates: list[CandidateTurn] = []
         expected = trace.expected_database_state
 
+        voiceflow = trace.source is TraceSource.VOICEFLOW
         for turn in trace.turns:
             layers = {layer.layer: layer for layer in turn.layers}
-            caller_text = str(layers[Layer.CALLER].output["intended_text"])
-            stt_text = str(layers[Layer.STT].output["final_hypothesis"])
+            caller_raw = layers[Layer.CALLER].output.get("intended_text")
+            stt_raw = layers[Layer.STT].output.get("final_hypothesis")
             reasons: list[CandidateReason] = []
             evidence: list[str] = []
             score = 0.0
 
-            if caller_text != stt_text:
+            if voiceflow:
+                # VoiceFlow traces carry no hard-coded entity: compare normalised text and
+                # judge state only on the oracle fields this turn has already captured.
+                text_differs = caller_raw is not None and normalise_text(caller_raw) != normalise_text(stt_raw or "")
+                wrong_fields = [
+                    key
+                    for key, value in expected.items()
+                    if key in turn.database_state_after
+                    and turn.database_state_after[key] != ""
+                    and normalise_text(turn.database_state_after[key]) != normalise_text(value)
+                ]
+                state_differs = bool(wrong_fields)
+            else:
+                text_differs = str(caller_raw) != str(stt_raw)
+                wrong_fields = []
+                state_differs = turn.database_state_after != expected
+
+            if text_differs:
                 reasons.append(CandidateReason.ENTITY_MISMATCH)
-                evidence.append(f"Caller intended: {caller_text}")
-                evidence.append(f"STT returned: {stt_text}")
+                evidence.append(f"Caller intended: {caller_raw}")
+                evidence.append(f"STT returned: {stt_raw}")
                 score += 0.7
 
-            if turn.database_state_after != expected:
+            if state_differs:
                 reasons.append(CandidateReason.FIRST_INCORRECT_STATE)
-                evidence.append(
-                    "Database state differs from the scenario's expected final state."
-                )
+                if wrong_fields:
+                    evidence.extend(
+                        f"{key}: expected {expected[key]!r}, captured {turn.database_state_after[key]!r}"
+                        for key in wrong_fields
+                    )
+                else:
+                    evidence.append(
+                        "Database state differs from the scenario's expected final state."
+                    )
                 score += 0.3
+
+            if voiceflow:
+                llm_text = layers[Layer.LLM].output.get("response_text")
+                spoken = layers[Layer.TTS].output.get("spoken_text")
+                if isinstance(llm_text, str) and isinstance(spoken, str) and normalise_text(llm_text) != normalise_text(spoken):
+                    reasons.append(CandidateReason.SPOKEN_MISMATCH)
+                    evidence.append(f"LLM said: {llm_text}")
+                    evidence.append(f"TTS spoke: {spoken}")
+                    score += 0.5
 
             if reasons:
                 candidates.append(

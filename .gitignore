@@ -1,16 +1,38 @@
+# Python
 .venv/
+**/.venv/
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
+
+# Secrets: every .env anywhere (keep the .env.example templates)
 .env
+.env.*
+!.env.example
+
+# Artemis local data
 artemis_voice.db
 audio/
 reports/
-frontend/node_modules/
-frontend/dist/
-frontend/*.tsbuildinfo
 data/
 
+# VoiceFlow Studio runtime data
+voiceflow-studio/backend/artifacts/
+*.sqlite3
+
+# Node / frontends
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+voiceflow-studio/frontend/.next/
+voiceflow-studio/frontend/out/
+
+# Dev runner logs (scripts/dev.sh)
+.dev-logs/
+
+# OS
+.DS_Store

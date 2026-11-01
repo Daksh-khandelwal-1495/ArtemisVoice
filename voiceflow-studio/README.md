@@ -10,34 +10,44 @@ Each bot has a configurable STT / LLM / TTS stack and a visual, versioned conver
 
 ## Run
 
+Studio is one half of the ArtemisVoice platform. From the **repository root**:
+
 ```bash
-git submodule update --init voiceflow-studio/vendor/pipecat   # Pipecat source (pinned)
+make setup     # git submodule update --init voiceflow-studio/vendor/pipecat, uv sync, npm install, Artemis venv
+cp voiceflow-studio/backend/.env.example voiceflow-studio/backend/.env   # OPENAI / DEEPGRAM / SONIOX keys; never commit
+make dev       # Postgres :5433 (docker) + Studio API :8000 + Studio UI :3000 + Artemis :8001/:5173
+make up        # or: the whole platform in Docker (root compose.yaml)
+```
+
+See the root README (architecture and ports), [`docs/DEMO_RUNBOOK.md`](../docs/DEMO_RUNBOOK.md)
+and [`docs/INTEGRATION_CONTRACT.md`](../docs/INTEGRATION_CONTRACT.md).
+
+### Studio only (manual)
+
+```bash
 cd voiceflow-studio
-docker compose up -d                       # Postgres on :5433
-cp backend/.env.example backend/.env       # add OPENAI_API_KEY, DEEPGRAM_API_KEY, SONIOX_API_KEY (never commit .env)
+git submodule update --init vendor/pipecat           # Pipecat source (pinned); required
+docker compose up -d postgres                        # Postgres on :5433
+cp backend/.env.example backend/.env                 # add keys (never commit .env)
 cd backend && uv sync && uv run uvicorn app.main:app --port 8000   # creates tables + auto-seeds
-cd frontend && npm install && npm run dev  # http://localhost:3000
+cd ../frontend && npm install && npm run dev         # http://localhost:3000 (second terminal)
 ```
 
-### Docker backend (no host Python required)
+`voiceflow-studio/docker-compose.yml` can also run the API in Docker (`docker compose up --build -d`).
+It overrides `DATABASE_URL` to `postgres:5432`, and `backend/.env` is optional. Do not run it
+alongside the root stack: both publish 5433 and 8000. **Live microphone calls need the API on the
+host** on Docker Desktop (macOS/Windows), because WebRTC media cannot reach the container. See
+[`docs/DOCKER.md`](../docs/DOCKER.md#live-microphone-calls-webrtc).
 
-With `backend/.env` populated, Docker Desktop can run the backend and Postgres:
-
-```bash
-cd voiceflow-studio
-docker compose up --build -d
-```
-
-Verify the database and configured provider keys without exposing their values:
+Check the database and configured provider keys without exposing their values:
 
 ```bash
 curl http://localhost:8000/api/health
 ```
 
-Run the existing Next.js frontend with `NEXT_PUBLIC_API_URL=http://localhost:8000`
-and allow microphone access for `http://localhost:3000` when starting a Test Call.
+Allow microphone access for `http://localhost:3000` when starting a Test Call, and use headphones.
 
-Tests: `cd backend && uv run pytest -q` · Reseed: `uv run python -m app.seed.loader [--reset]` · UI without backend: `NEXT_PUBLIC_MOCK=1 npm run dev`
+Tests: `cd backend && uv run pytest -q` (sqlite fallback when Postgres :5433 is down) · Reseed: `uv run python -m app.seed.loader [--reset]` (or `make demo-seed` from the root) · UI without backend: `NEXT_PUBLIC_MOCK=1 npm run dev`
 
 ## Architecture
 

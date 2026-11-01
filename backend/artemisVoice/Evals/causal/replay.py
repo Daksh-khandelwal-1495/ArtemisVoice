@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from enum import StrEnum
 from math import comb
-from uuid import UUID
+from typing import Any
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from artemisVoice.Evals.agents.protocol import ReplayingVoiceAgentAdapter, ReplayTrial
 from artemisVoice.Evals.causal.locator import CandidateTurnLocator
 from artemisVoice.Evals.tracing.contracts import (
     Layer,
     RunTrace,
     TraceContractError,
+    TraceSource,
     TurnTrace,
     state_hash,
 )
@@ -34,6 +38,41 @@ class Verdict(StrEnum):
     NOT_THE_AGENT = "not_the_agent"
 
 
+class ReportVerdict(StrEnum):
+    """Overall verdict across all oracle arms; compound = at least two arms proven."""
+
+    PROVEN = "proven"
+    COMPOUND = "compound"
+    LIKELY = "likely"
+    INCONCLUSIVE = "inconclusive"
+    NOT_THE_AGENT = "not_the_agent"
+
+
+ORACLE_ARMS: tuple[Intervention, ...] = (
+    Intervention.ENDPOINTING_ORACLE,
+    Intervention.STT_ORACLE,
+    Intervention.LLM_ORACLE,
+    Intervention.TOOLS_ORACLE,
+    Intervention.TTS_ORACLE,
+)
+
+INTERVENTION_LAYER: dict[Intervention, Layer] = {
+    Intervention.ENDPOINTING_ORACLE: Layer.ENDPOINTING,
+    Intervention.STT_ORACLE: Layer.STT,
+    Intervention.LLM_ORACLE: Layer.LLM,
+    Intervention.TOOLS_ORACLE: Layer.TOOLS,
+    Intervention.TTS_ORACLE: Layer.TTS,
+}
+
+_SUBJECT: dict[Intervention, str] = {
+    Intervention.ENDPOINTING_ORACLE: "the endpointing decision",
+    Intervention.STT_ORACLE: "the STT result",
+    Intervention.LLM_ORACLE: "the LLM tool arguments",
+    Intervention.TOOLS_ORACLE: "the tool results",
+    Intervention.TTS_ORACLE: "the spoken TTS output",
+}
+
+
 class ArmResult(BaseModel):
     """Repeated evidence for a single replay intervention."""
 
@@ -43,6 +82,9 @@ class ArmResult(BaseModel):
     trials: int = Field(ge=1)
     pass_count: int = Field(ge=0)
     replay_run_ids: list[UUID]
+    # VoiceFlow arms: Studio replay sessions and their oracle outcomes, for auditing.
+    replay_session_ids: list[str] = Field(default_factory=list)
+    outcomes: list[dict[str, Any]] = Field(default_factory=list)
 
     @property
     def pass_rate(self) -> float:
@@ -62,6 +104,28 @@ class Diagnosis(BaseModel):
     effect_size: float
     fisher_exact_p_value: float
     verdict: Verdict
+    layer: Layer | None = None
+    summary: str = ""
+
+
+class CausalReport(BaseModel):
+    """Control plus every oracle arm for one run: the full causal diagnosis."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: UUID = Field(default_factory=uuid4)
+    source_run_id: UUID
+    source: TraceSource
+    studio_session_id: str | None = None
+    turn_index: int = Field(ge=0)
+    trials: int = Field(ge=1)
+    seed: int = Field(ge=0)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    control: ArmResult
+    arms: list[Diagnosis]
+    verdict: ReportVerdict
+    proven_layers: list[Layer]
+    summary: str
 
 
 class CounterfactualReplayEngine:
@@ -70,7 +134,27 @@ class CounterfactualReplayEngine:
     The MVP supports one-turn scenarios. Its important guarantee is preserved: the
     control and intervention use the same saved turn, seed, and configuration; the
     intervention mutates only the STT output and the downstream consequences.
+
+    Runs whose behaviour cannot be recomputed in-process (``source=voiceflow``)
+    are delegated to a replaying adapter; the Studio restores the recorded
+    state and swaps exactly one layer for its oracle.
     """
+
+    def __init__(self, adapter: ReplayingVoiceAgentAdapter | None = None) -> None:
+        self._adapter = adapter
+
+    def _require_adapter(self, source: RunTrace) -> ReplayingVoiceAgentAdapter:
+        if self._adapter is None:
+            raise TraceContractError(
+                f"{source.source} runs are replayed by their agent; no replaying adapter is configured"
+            )
+        return self._adapter
+
+    def default_turn_index(self, source: RunTrace) -> int:
+        if source.source is TraceSource.DETERMINISTIC:
+            return len(source.turns) - 1
+        candidates = CandidateTurnLocator().locate(source, limit=1)
+        return candidates[0].turn_index if candidates else 0
 
     def replay(
         self,
@@ -81,6 +165,11 @@ class CounterfactualReplayEngine:
     ) -> RunTrace:
         if not source.valid_caller_run:
             raise TraceContractError("invalid caller runs cannot be attributed to the agent")
+        if source.source is not TraceSource.DETERMINISTIC:
+            trial = self._delegate(source, turn_index, intervention, 1, source.seed)[0]
+            if trial.run_trace is None:
+                raise TraceContractError("the agent's replay did not return a valid RunTrace")
+            return trial.run_trace
         if turn_index != len(source.turns) - 1:
             raise TraceContractError("the MVP replay engine supports the final recorded turn only")
 
@@ -130,6 +219,78 @@ class CounterfactualReplayEngine:
             raise ValueError("a diagnosis requires a non-control intervention")
 
         control = self._run_arm(source, turn_index, Intervention.CONTROL, trials)
+        return self._compare(source, turn_index, intervention, control, trials)
+
+    def diagnose_all(
+        self,
+        source: RunTrace,
+        *,
+        turn_index: int | None = None,
+        trials: int = 5,
+    ) -> CausalReport:
+        """Run one shared control arm and every oracle arm, then summarise the cause."""
+
+        if trials < 1:
+            raise ValueError("trials must be positive")
+        if turn_index is None:
+            turn_index = self.default_turn_index(source)
+        source.restore_turn(turn_index)
+        control = self._run_arm(source, turn_index, Intervention.CONTROL, trials)
+        arms = [
+            self._compare(source, turn_index, intervention, control, trials)
+            for intervention in ORACLE_ARMS
+        ]
+        proven = [arm for arm in arms if arm.verdict is Verdict.PROVEN]
+        if control.pass_count == control.trials:
+            verdict = ReportVerdict.NOT_THE_AGENT
+            summary = _not_the_agent_sentence(control)
+        elif len(proven) >= 2:
+            verdict = ReportVerdict.COMPOUND
+            parts = " or ".join(
+                f"only {_SUBJECT[arm.intervention]} ({arm.intervention_arm.pass_count}/{arm.intervention_arm.trials})"
+                for arm in proven
+            )
+            summary = (
+                f"Compound failure: replacing {parts} each changed the outcome from failure to success; "
+                f"control passed {control.pass_count}/{control.trials}."
+            )
+        elif proven:
+            verdict = ReportVerdict.PROVEN
+            summary = proven[0].summary
+        else:
+            likely = [arm for arm in arms if arm.verdict is Verdict.LIKELY]
+            if likely:
+                best = max(likely, key=lambda arm: arm.effect_size)
+                verdict = ReportVerdict.LIKELY
+                summary = best.summary
+            else:
+                verdict = ReportVerdict.INCONCLUSIVE
+                summary = (
+                    "No single-layer oracle changed the outcome reliably "
+                    f"(control passed {control.pass_count}/{control.trials}); the cause is inconclusive."
+                )
+        return CausalReport(
+            source_run_id=source.id,
+            source=source.source,
+            studio_session_id=source.studio_session_id,
+            turn_index=turn_index,
+            trials=trials,
+            seed=source.seed,
+            control=control,
+            arms=arms,
+            verdict=verdict,
+            proven_layers=[INTERVENTION_LAYER[arm.intervention] for arm in proven],
+            summary=summary,
+        )
+
+    def _compare(
+        self,
+        source: RunTrace,
+        turn_index: int,
+        intervention: Intervention,
+        control: ArmResult,
+        trials: int,
+    ) -> Diagnosis:
         intervention_arm = self._run_arm(source, turn_index, intervention, trials)
         effect_size = intervention_arm.pass_rate - control.pass_rate
         p_value = fisher_exact_two_sided(
@@ -138,6 +299,7 @@ class CounterfactualReplayEngine:
             control.pass_count,
             control.trials - control.pass_count,
         )
+        verdict = _verdict(control, effect_size, p_value)
         return Diagnosis(
             source_run_id=source.id,
             turn_index=turn_index,
@@ -146,7 +308,9 @@ class CounterfactualReplayEngine:
             intervention_arm=intervention_arm,
             effect_size=effect_size,
             fisher_exact_p_value=p_value,
-            verdict=_verdict(control, effect_size, p_value),
+            verdict=verdict,
+            layer=INTERVENTION_LAYER.get(intervention),
+            summary=arm_sentence(intervention, control, intervention_arm, verdict),
         )
 
     def diagnose_first_stt_candidate(self, source: RunTrace, *, trials: int = 5) -> Diagnosis:
@@ -164,6 +328,18 @@ class CounterfactualReplayEngine:
         intervention: Intervention,
         trials: int,
     ) -> ArmResult:
+        if source.source is not TraceSource.DETERMINISTIC:
+            if not source.valid_caller_run:
+                raise TraceContractError("invalid caller runs cannot be attributed to the agent")
+            results = self._delegate(source, turn_index, intervention, trials, source.seed)
+            return ArmResult(
+                intervention=intervention,
+                trials=len(results),
+                pass_count=sum(item.passed for item in results),
+                replay_run_ids=[_replay_run_id(item) for item in results],
+                replay_session_ids=[item.replay_session_id for item in results if item.replay_session_id],
+                outcomes=[item.outcome for item in results],
+            )
         replayed = [
             self.replay(source, turn_index=turn_index, intervention=intervention)
             for _ in range(trials)
@@ -174,6 +350,23 @@ class CounterfactualReplayEngine:
             pass_count=sum(item.is_successful() for item in replayed),
             replay_run_ids=[item.id for item in replayed],
         )
+
+    def _delegate(
+        self,
+        source: RunTrace,
+        turn_index: int,
+        intervention: Intervention,
+        trials: int,
+        seed: int,
+    ) -> list[ReplayTrial]:
+        results = self._require_adapter(source).replay(
+            source, turn_index, intervention.value, seed, trials=trials
+        )
+        if len(results) != trials:
+            raise TraceContractError(
+                f"the agent returned {len(results)} replay trials for {intervention}; expected {trials}"
+            )
+        return results
 
     def _replace_layer_with_truth(
         self, source: RunTrace, turn_index: int, intervention: Intervention
@@ -228,6 +421,45 @@ class CounterfactualReplayEngine:
         )
         # Re-validate the copied turn: model_copy intentionally skips validation.
         return type(source_turn).model_validate(repaired_turn.model_dump()), repaired_state
+def _replay_run_id(trial: ReplayTrial) -> UUID:
+    if trial.run_trace is not None:
+        return trial.run_trace.id
+    if trial.replay_session_id:
+        return uuid5(NAMESPACE_URL, f"voiceflow-replay:{trial.replay_session_id}")
+    return uuid4()
+
+
+def _not_the_agent_sentence(control: ArmResult) -> str:
+    return (
+        f"The unmodified control replay already succeeds in {control.pass_count}/{control.trials} replays, "
+        "so the recorded failure is not attributable to the agent."
+    )
+
+
+def arm_sentence(
+    intervention: Intervention, control: ArmResult, arm: ArmResult, verdict: Verdict
+) -> str:
+    """Human-readable, evidence-bound sentence for one oracle arm."""
+
+    subject = _SUBJECT.get(intervention, str(intervention))
+    if verdict is Verdict.NOT_THE_AGENT:
+        return _not_the_agent_sentence(control)
+    if arm.pass_count > control.pass_count:
+        if control.pass_count == 0:
+            return (
+                f"Replacing only {subject} changed the outcome from failure to success "
+                f"in {arm.pass_count}/{arm.trials} replays."
+            )
+        return (
+            f"Replacing only {subject} raised the success rate from {control.pass_count}/{control.trials} "
+            f"to {arm.pass_count}/{arm.trials} replays."
+        )
+    return (
+        f"Replacing only {subject} did not change the outcome "
+        f"({arm.pass_count}/{arm.trials} replays succeeded vs {control.pass_count}/{control.trials} in control)."
+    )
+
+
 def _verdict(control: ArmResult, effect_size: float, p_value: float) -> Verdict:
     if control.pass_rate == 1.0:
         return Verdict.NOT_THE_AGENT

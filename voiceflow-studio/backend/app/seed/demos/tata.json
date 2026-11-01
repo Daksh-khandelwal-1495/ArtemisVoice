@@ -1,0 +1,86 @@
+{
+  "bot_slug": "tata-motors",
+  "base": {
+    "caller_turns": [
+      "Hi, I would like to book a test drive for the Tata Nexon.",
+      "I am in Pune, pincode 411001.",
+      "Camp Auto Plaza, please.",
+      "Tomorrow morning works for me.",
+      "My name is Asha Sharma and my number is 9876543210.",
+      "Yes, that is correct.",
+      "Yes, everything is correct."
+    ],
+    "expected_fields": {
+      "car_model": "Nexon",
+      "city": "Pune",
+      "pincode": "411001",
+      "customer_name": "Asha Sharma",
+      "phone": "9876543210"
+    },
+    "expected_lookup": {"dataset": "tata_dealers", "match": {"city": "Pune", "pincode": "411001"}},
+    "expected_end_node": "end_booked",
+    "expected_status": "completed",
+    "expected_bot_response": {"contains": ["Nexon"]}
+  },
+  "oracles": [
+    {
+      "slug": "tata-happy",
+      "name": "Tata happy path (Nexon / Pune 411001)",
+      "description": "Scripted caller books a Nexon test drive at the Pune 411001 dealer. No faults: every arm passes.",
+      "fault_profile": null,
+      "tags": ["demo", "regression"]
+    },
+    {
+      "slug": "tata-stt",
+      "name": "STT confusion: 411001 heard as 41100I",
+      "description": "Deepgram-style digit confusion on the pincode. Protected by keyterms, so stt_keyterm_boost with 411001 fixes it. Nexon->Nixon is listed but keyword-protected (Nexon is a configured keyterm).",
+      "fault_profile": {
+        "stt": {
+          "replacements": [{"from": "411001", "to": "41100I"}, {"from": "Nexon", "to": "Nixon"}],
+          "keyword_protected": true
+        }
+      },
+      "tags": ["demo", "fault", "stt"]
+    },
+    {
+      "slug": "tata-endpointing",
+      "name": "Endpointing cut-off: pincode truncated to 4 digits",
+      "description": "VAD stops too early while the caller reads the pincode; only '4110' reaches STT. vad_stop_secs >= 1.0 fixes it.",
+      "fault_profile": {"endpointing": {"truncate_field": "pincode", "keep_chars": 4}},
+      "tags": ["demo", "fault", "endpointing"]
+    },
+    {
+      "slug": "tata-llm",
+      "name": "LLM tool-argument error: pincode gets the phone number",
+      "description": "Transcript is correct but the LLM fills submit_collect_location.pincode with the caller's phone number.",
+      "fault_profile": {"llm": {"swap_field": {"field": "pincode", "with_value_of": "phone"}}},
+      "tags": ["demo", "fault", "llm"]
+    },
+    {
+      "slug": "tata-tools",
+      "name": "Lookup failure: wrong dealer returned",
+      "description": "The dealer lookup returns a Mumbai dealer for Pune 411001, so the expected dealer is never offered.",
+      "fault_profile": {
+        "tools": {
+          "lookup_override": {
+            "dataset": "tata_dealers",
+            "rows": [{
+              "dealer_id": "TD001", "name": "Sahyadri Motors (Demo) - Andheri West", "city": "Mumbai",
+              "pincode": "400053", "address": "Plot 12, Link Road, Andheri West, Mumbai - 400053",
+              "phone": "022-5550-0001", "ev_ready": "yes", "open_hours": "10:00-19:00"
+            }]
+          },
+          "api_error": false
+        }
+      },
+      "tags": ["demo", "fault", "tools"]
+    },
+    {
+      "slug": "tata-tts",
+      "name": "TTS error: confirmation spoken as 'Nixon'",
+      "description": "The response text says Nexon but the synthesized speech says Nixon in the booking confirmation.",
+      "fault_profile": {"tts": {"replacements": [{"from": "Nexon", "to": "Nixon"}]}},
+      "tags": ["demo", "fault", "tts"]
+    }
+  ]
+}

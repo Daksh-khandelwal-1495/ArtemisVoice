@@ -20,6 +20,13 @@ class Layer(StrEnum):
     TTS = "text_to_speech"
 
 
+class TraceSource(StrEnum):
+    """Which agent produced a run; replay mechanics differ per source."""
+
+    DETERMINISTIC = "deterministic"
+    VOICEFLOW = "voiceflow"
+
+
 class TraceContractError(ValueError):
     """Raised when a trace cannot safely be used for replay."""
 
@@ -98,6 +105,10 @@ class RunTrace(BaseModel):
     expected_spoken_text: str
     final_database_state: dict[str, str]
     turns: list[TurnTrace] = Field(min_length=1)
+    # Optional generalisation (INTEGRATION_CONTRACT §4). Deterministic runs keep the defaults.
+    source: TraceSource = TraceSource.DETERMINISTIC
+    studio_session_id: str | None = None
+    expected_spoken_contains: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def ordered_turns_and_final_state(self) -> RunTrace:
@@ -113,12 +124,32 @@ class RunTrace(BaseModel):
         except IndexError as error:
             raise TraceContractError(f"turn {index} does not exist in run {self.id}") from error
 
+    def final_spoken_text(self) -> str:
+        spoken = next(layer for layer in self.turns[-1].layers if layer.layer is Layer.TTS)
+        return str(spoken.output.get("spoken_text") or "")
+
     def is_successful(self) -> bool:
+        if self.source is TraceSource.VOICEFLOW:
+            final = {key: normalise_text(value) for key, value in self.final_database_state.items()}
+            state_ok = all(
+                final.get(key) == normalise_text(value)
+                for key, value in self.expected_database_state.items()
+            )
+            spoken = normalise_text(self.final_spoken_text())
+            return state_ok and all(
+                normalise_text(item) in spoken for item in self.expected_spoken_contains
+            )
         spoken = next(layer for layer in self.turns[-1].layers if layer.layer is Layer.TTS)
         return (
             self.final_database_state == self.expected_database_state
             and spoken.output.get("spoken_text") == self.expected_spoken_text
         )
+
+
+def normalise_text(value: object) -> str:
+    """Case- and whitespace-insensitive comparison form used for VoiceFlow outcomes."""
+
+    return " ".join(str(value).casefold().split())
 
 
 def state_hash(state: dict[str, str]) -> str:

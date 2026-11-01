@@ -1,23 +1,120 @@
+# ArtemisVoice platform: VoiceFlow Studio (agent under test) + Artemis (causal debugger).
+#
+#   make up        # = docker compose up --build -d   (needs the pipecat submodule: make setup)
+#   make down
+#
+# Host ports (binding, see docs/INTEGRATION_CONTRACT.md):
+#   Studio API 8000 · Studio UI 3000 · Artemis API 8001 · Artemis dashboard 5173 · Postgres 5433
+#
+# Provider keys come from voiceflow-studio/backend/.env (optional; copy the .env.example)
+# and, for Artemis, the root .env (optional). Nothing secret is baked into an image.
+#
+# Live microphone calls (WebRTC) from a browser to the Studio API *container* do not work
+# reliably on Docker Desktop for macOS/Windows. For live calls run the Studio API on the
+# host instead (`make up-hybrid` + `make studio-api`); see docs/DOCKER.md.
+name: artemisvoice
+
 services:
-  backend:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: voiceflow
+      POSTGRES_PASSWORD: voiceflow
+      POSTGRES_DB: voiceflow
+    ports: ["5433:5432"]
+    volumes: [studio-pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voiceflow -d voiceflow"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  studio-api:
+    build:
+      context: ./voiceflow-studio
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: voiceflow-studio/backend/.env
+        required: false
+    environment:
+      # backend/.env targets localhost:5433 for host runs; in the network it is postgres:5432.
+      DATABASE_URL: postgresql+asyncpg://voiceflow:voiceflow@postgres:5432/voiceflow
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      ARTEMIS_API_URL: http://artemis-api:8000
+      ARTEMIS_DASHBOARD_URL: http://localhost:5173
+      ARTIFACTS_DIR: /data/artifacts
+      API_CALL_MOCK: ${API_CALL_MOCK:-true}
+      REPLAY_LLM_SEED: ${REPLAY_LLM_SEED:-7}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes: [studio-artifacts:/data/artifacts]
+    ports: ["8000:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2).status == 200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      start_period: 40s
+      retries: 6
+
+  studio-ui:
+    build:
+      context: ./voiceflow-studio/frontend
+      args:
+        # Inlined into the browser bundle: must be host URLs, not service names.
+        NEXT_PUBLIC_API_URL: ${STUDIO_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_ARTEMIS_DASHBOARD_URL: ${ARTEMIS_PUBLIC_DASHBOARD_URL:-http://localhost:5173}
+    ports: ["3000:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 6
+
+  artemis-api:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - path: .env
+        required: false
     environment:
       ARTEMIS_DATABASE_PATH: /app/data/artemis_voice.db
-    volumes:
-      - artemis-data:/app/data
-    expose:
-      - "8000"
+      # Hybrid mode (Studio API on the host): ARTEMIS_STUDIO_API_URL=http://host.docker.internal:8000
+      STUDIO_API_URL: ${ARTEMIS_STUDIO_API_URL:-http://studio-api:8000}
+      STUDIO_UI_URL: ${STUDIO_PUBLIC_UI_URL:-http://localhost:3000}
+      ARTEMIS_CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes: [artemis-data:/app/data]
+    ports: ["8001:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).status == 200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 6
 
-  frontend:
+  artemis-dashboard:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      args:
+        VITE_STUDIO_UI_URL: ${STUDIO_PUBLIC_UI_URL:-http://localhost:3000}
+        VITE_STUDIO_API_URL: ${STUDIO_PUBLIC_API_URL:-http://localhost:8000}
     depends_on:
-      - backend
-    ports:
-      - "5173:80"
+      artemis-api:
+        condition: service_healthy
+    ports: ["5173:80"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
 
 volumes:
+  studio-pgdata:
+  studio-artifacts:
   artemis-data:

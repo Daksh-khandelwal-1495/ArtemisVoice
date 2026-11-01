@@ -156,10 +156,13 @@ class SessionRecorder:
             )
         self._created = True
 
-    def event(self, type: str, node_id: str | None = None, payload: dict[str, Any] | None = None) -> None:
+    def event(self, type: str, node_id: str | None = None, payload: dict[str, Any] | None = None,
+              *, mask: bool = True) -> None:
+        """Append a session event. ``mask=False`` stores the payload verbatim (trace events
+        need real state for replay; they are masked when served)."""
         if type in ("user_transcript", "bot_transcript") and not self.record_transcript:
             return
-        data = json_safe(mask_payload(payload or {}, self.sensitive))
+        data = json_safe(mask_payload(payload or {}, self.sensitive) if mask else (payload or {}))
         ts = datetime.now(timezone.utc)
 
         async def op(db) -> None:

@@ -13,6 +13,8 @@ from app.api.common import get_bot_or_404, latest_version, mask_payload, mask_va
 from app.db.models import Bot, CallSession, CapturedField, FlowVersion, SessionEvent
 from app.db.session import get_db
 from app.services.artemis_evidence import build_artemis_evidence
+from app.tracing.builder import build_trace, load_session_bundle
+from app.tracing.schema import TRACE_EVENT_TYPES
 
 router = APIRouter(tags=["sessions"])
 
@@ -35,6 +37,7 @@ async def list_sessions(
     bot_id: str | None = None,
     status: str | None = None,
     mode: str | None = None,
+    include_replay: bool = False,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -47,6 +50,8 @@ async def list_sessions(
         cond.append(CallSession.status == status)
     if mode:
         cond.append(CallSession.mode == mode)
+    elif not include_replay:
+        cond.append(CallSession.mode != "replay")  # replay trials are sandbox artefacts (contract §2)
 
     total = (await db.execute(select(func.count(CallSession.id)).where(*cond))).scalar() or 0
     rows = (
@@ -159,7 +164,9 @@ async def get_session(session_id: str, reveal: bool = False, db: AsyncSession = 
             {"id": str(e.id), "ts": _iso(e.ts), "type": e.type, "node_id": e.node_id,
              "payload": mask_payload(e.payload or {}, sensitive)}
             for e in events
+            if e.type not in TRACE_EVENT_TYPES
         ],
+        "trace_turns": sum(1 for e in events if e.type == "trace_turn"),
         "captured": [
             {
                 "id": str(c.id),
@@ -176,36 +183,23 @@ async def get_session(session_id: str, reveal: bool = False, db: AsyncSession = 
     }
 
 
+@router.get("/sessions/{session_id}/trace")
+async def get_trace(session_id: str, reveal: bool = False, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Replay-grade trace (docs/INTEGRATION_CONTRACT.md section 1) with honest ``replay_ready``."""
+    trace = await build_trace(db, session_id, reveal=reveal)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return trace
+
+
 @router.get("/sessions/{session_id}/artemis-evidence")
 async def get_artemis_evidence(
     session_id: str, reveal: bool = False, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
     """Export recorded Studio evidence without overstating replay readiness."""
-    sid = parse_uuid(session_id)
-    session = await db.get(CallSession, sid) if sid else None
-    if session is None:
+    bundle = await load_session_bundle(db, session_id)
+    if bundle is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    bot = await db.get(Bot, session.bot_id)
-    flow_version = await db.get(FlowVersion, session.flow_version_id) if session.flow_version_id else None
-    graph = flow_version.graph if flow_version else None
-    all_sensitive = sensitive_fields(graph)
-    sensitive = set() if reveal else all_sensitive
-    events = (
-        await db.execute(
-            select(SessionEvent).where(SessionEvent.session_id == session.id).order_by(SessionEvent.ts, SessionEvent.id)
-        )
-    ).scalars().all()
-    evidence = build_artemis_evidence(
-        session=session,
-        bot=bot,
-        flow_version=flow_version,
-        events=events,
-        variables=mask_payload(session.variables or {}, sensitive),
-    )
-    for turn in evidence["turns"]:
-        turn["caller"] = mask_payload(turn["caller"], sensitive)
-        turn["speech_to_text"] = mask_payload(turn["speech_to_text"], sensitive)
-        turn["llm"] = mask_payload(turn["llm"], sensitive)
-        turn["tools"] = mask_payload(turn["tools"], sensitive)
-        turn["text_to_speech"] = mask_payload(turn["text_to_speech"], sensitive)
-    return evidence
+    trace = await build_trace(db, session_id, reveal=reveal)
+    return build_artemis_evidence(bundle=bundle, trace=trace, reveal=reveal,
+                                  trace_url=f"/api/sessions/{bundle['session'].id}/trace")
