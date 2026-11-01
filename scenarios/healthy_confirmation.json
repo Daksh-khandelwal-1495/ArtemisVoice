@@ -1,0 +1,10 @@
+{
+  "id": "healthy-confirmation",
+  "caller_name": "Sam Rivera",
+  "confirmation_code": "B8Q2",
+  "expected_database_state": {
+    "customer_name": "Sam Rivera",
+    "confirmation_code": "B8Q2"
+  },
+  "seed": 11
+}

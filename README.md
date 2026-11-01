@@ -1,2 +1,40 @@
 # ArtemisVoice
-Voice Agent Evals 
+
+Causal debugging and regression validation for cascaded voice agents.
+
+ArtemisVoice does not stop at a pass rate. It records a replayable call trace,
+tests controlled substitutions of the voice pipeline, and produces evidence for
+the layer most likely responsible for a failure. A proposed patch must then pass
+the original failure, held-out variants, and the regression suite.
+
+The first implementation slice is intentionally provider-free: it uses a
+deterministic confirmation-code agent to prove the trace and replay contract
+before Pipecat or external speech/model vendors are introduced.
+
+## Status
+
+The repository now has the Phase 0 foundation:
+
+- versioned, replay-oriented Pydantic trace contracts;
+- a deterministic confirmation-code domain with healthy and forced-STT-error
+  scenarios;
+- a SQLite trace store that restores a saved turn and its database snapshot;
+- tests covering valid traces, the seeded failure, and a missing-artifact guard.
+
+See [the implementation plan](docs/IMPLEMENTATION_PLAN.md) for ordered milestones,
+acceptance gates, risks, and the intended architecture.
+
+## Run the deterministic foundation
+
+Create an environment with Python 3.12 or newer, then install the development
+dependencies:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest
+python -m artemisVoice.Evals.cli --scenario scenarios/healthy_confirmation.json
+```
+
+The CLI writes a replayable run to SQLite and prints the structured result. The
+next milestone adds same-seed control replay, counterfactual arms, and repeated
+trial verdicts.
