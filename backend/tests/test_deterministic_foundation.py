@@ -8,6 +8,7 @@ from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAge
 from artemisVoice.Evals.causal.locator import CandidateReason, CandidateTurnLocator
 from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Verdict
 from artemisVoice.Evals.domain.models import Scenario
+from artemisVoice.Evals.patches.service import PatchService, PatchStatus
 from artemisVoice.Evals.storage.sqlite import SQLiteTraceStore
 from artemisVoice.Evals.tracing.contracts import Layer, RunTrace
 from pydantic import ValidationError
@@ -97,3 +98,73 @@ def test_diagnosis_evidence_is_persisted_with_its_source_run(tmp_path: Path) -> 
         store.close()
 
     assert restored == diagnosis
+
+
+def test_stt_patch_requires_proof_and_human_approval_before_application() -> None:
+    scenario = load_scenario("stt_confusion_confirmation.json")
+    base_agent = DeterministicConfirmationAgent()
+    diagnosis = CounterfactualReplayEngine().diagnose_first_stt_candidate(base_agent.run(scenario))
+    service = PatchService()
+    proposal = service.propose_stt_keyword_boost(diagnosis, keyword="B8")
+
+    assert proposal.status is PatchStatus.PENDING
+    with pytest.raises(ValueError, match="must approve"):
+        service.apply(proposal, base_agent)
+
+    patched_agent = service.apply(service.approve(proposal), base_agent)
+    assert patched_agent.run(scenario).final_database_state == scenario.expected_database_state
+
+
+def test_approved_stt_patch_passes_failure_held_out_and_regression_gate() -> None:
+    failing = load_scenario("stt_confusion_confirmation.json")
+    held_out = load_scenario("stt_confusion_confirmation_heldout.json")
+    healthy = load_scenario("healthy_confirmation.json")
+    base_agent = DeterministicConfirmationAgent()
+    diagnosis = CounterfactualReplayEngine().diagnose_first_stt_candidate(base_agent.run(failing))
+    service = PatchService()
+    proposal = service.approve(
+        service.propose_stt_keyword_boost(diagnosis, keyword="B8")
+    )
+
+    result = service.validate(
+        proposal,
+        base_agent=base_agent,
+        failing=[failing],
+        held_out=[held_out],
+        regression=[healthy],
+    )
+
+    assert result.passed
+    assert [(item.name, item.before_pass_rate, item.after_pass_rate) for item in result.sets] == [
+        ("failing", 0.0, 1.0),
+        ("held_out", 0.0, 1.0),
+        ("regression", 1.0, 1.0),
+    ]
+
+
+def test_approved_patch_and_gate_result_are_persisted(tmp_path: Path) -> None:
+    failing = load_scenario("stt_confusion_confirmation.json")
+    held_out = load_scenario("stt_confusion_confirmation_heldout.json")
+    healthy = load_scenario("healthy_confirmation.json")
+    base_agent = DeterministicConfirmationAgent()
+    diagnosis = CounterfactualReplayEngine().diagnose_first_stt_candidate(base_agent.run(failing))
+    service = PatchService()
+    proposal = service.approve(service.propose_stt_keyword_boost(diagnosis, keyword="B8"))
+    result = service.validate(
+        proposal,
+        base_agent=base_agent,
+        failing=[failing],
+        held_out=[held_out],
+        regression=[healthy],
+    )
+    store = SQLiteTraceStore(tmp_path / "traces.db")
+    try:
+        store.save_patch(proposal)
+        store.save_patch_gate_result(result)
+        restored_patch = store.get_patch(proposal.id)
+        restored_result = store.get_patch_gate_result(proposal.id)
+    finally:
+        store.close()
+
+    assert restored_patch == proposal
+    assert restored_result == result

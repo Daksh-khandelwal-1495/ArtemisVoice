@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 from artemisVoice.Evals.causal.replay import Diagnosis
+from artemisVoice.Evals.patches.service import PatchGateResult, PatchProposal
 from artemisVoice.Evals.tracing.contracts import RunTrace, TraceContractError, TurnTrace
 
 
@@ -26,6 +27,12 @@ class SQLiteTraceStore:
                 diagnosis_json TEXT NOT NULL,
                 PRIMARY KEY (source_run_id, turn_index, intervention)
             )"""
+        )
+        self._connection.execute(
+            "CREATE TABLE IF NOT EXISTS patches (id TEXT PRIMARY KEY, patch_json TEXT NOT NULL)"
+        )
+        self._connection.execute(
+            "CREATE TABLE IF NOT EXISTS patch_gate_results (patch_id TEXT PRIMARY KEY, result_json TEXT NOT NULL)"
         )
         self._connection.commit()
 
@@ -75,6 +82,36 @@ class SQLiteTraceStore:
                 f"diagnosis for run {run_id}, turn {turn_index}, intervention {intervention} was not found"
             )
         return Diagnosis.model_validate_json(row[0])
+
+    def save_patch(self, proposal: PatchProposal) -> None:
+        self._connection.execute(
+            "INSERT OR REPLACE INTO patches (id, patch_json) VALUES (?, ?)",
+            (str(proposal.id), proposal.model_dump_json()),
+        )
+        self._connection.commit()
+
+    def get_patch(self, patch_id: UUID | str) -> PatchProposal:
+        row = self._connection.execute(
+            "SELECT patch_json FROM patches WHERE id = ?", (str(patch_id),)
+        ).fetchone()
+        if row is None:
+            raise TraceContractError(f"patch {patch_id} was not found")
+        return PatchProposal.model_validate_json(row[0])
+
+    def save_patch_gate_result(self, result: PatchGateResult) -> None:
+        self._connection.execute(
+            "INSERT OR REPLACE INTO patch_gate_results (patch_id, result_json) VALUES (?, ?)",
+            (str(result.patch_id), result.model_dump_json()),
+        )
+        self._connection.commit()
+
+    def get_patch_gate_result(self, patch_id: UUID | str) -> PatchGateResult:
+        row = self._connection.execute(
+            "SELECT result_json FROM patch_gate_results WHERE patch_id = ?", (str(patch_id),)
+        ).fetchone()
+        if row is None:
+            raise TraceContractError(f"patch gate result for {patch_id} was not found")
+        return PatchGateResult.model_validate_json(row[0])
 
     def close(self) -> None:
         self._connection.close()

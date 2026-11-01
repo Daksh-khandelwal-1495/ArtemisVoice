@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from hashlib import sha256
-from typing import ClassVar
 
 from artemisVoice.Evals.domain.models import Scenario
 from artemisVoice.Evals.tracing.contracts import (
@@ -18,7 +17,16 @@ from artemisVoice.Evals.tracing.contracts import (
 class DeterministicConfirmationAgent:
     """MVP adapter with a controlled STT bug for causal-replay development."""
 
-    config: ClassVar[dict[str, str | int]] = {"adapter": "deterministic-confirmation", "version": 1}
+    def __init__(self, *, stt_keyword_boosts: frozenset[str] = frozenset()) -> None:
+        self._stt_keyword_boosts = stt_keyword_boosts
+
+    @property
+    def config(self) -> dict[str, str | int | list[str]]:
+        return {
+            "adapter": "deterministic-confirmation",
+            "stt_keyword_boosts": sorted(self._stt_keyword_boosts),
+            "version": 1,
+        }
 
     @property
     def config_hash(self) -> str:
@@ -29,7 +37,12 @@ class DeterministicConfirmationAgent:
         started = datetime.now(UTC)
         before = {"customer_name": scenario.caller_name, "confirmation_code": ""}
         caller_text = scenario.caller_text()
-        transcript_code = scenario.forced_stt_confusion or scenario.confirmation_code
+        transcript_code = scenario.confirmation_code
+        boosted = any(
+            scenario.confirmation_code.startswith(keyword) for keyword in self._stt_keyword_boosts
+        )
+        if scenario.forced_stt_confusion and not boosted:
+            transcript_code = scenario.forced_stt_confusion
         transcript = caller_text.replace(scenario.confirmation_code, transcript_code)
         after = {"customer_name": scenario.caller_name, "confirmation_code": transcript_code}
         finished = datetime.now(UTC)
@@ -57,7 +70,7 @@ class DeterministicConfirmationAgent:
                 layer=Layer.STT,
                 input={"audio_artifact": "caller"},
                 output={"final_hypothesis": transcript, "confidence": 1.0},
-                settings={"model": "deterministic"},
+                settings={"keyword_boosts": sorted(self._stt_keyword_boosts), "model": "deterministic"},
                 seed=scenario.seed,
                 started_at=started,
                 finished_at=finished,

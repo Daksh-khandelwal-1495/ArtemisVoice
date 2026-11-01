@@ -1,0 +1,11 @@
+{
+  "id": "stt-confusion-confirmation-heldout",
+  "caller_name": "Noor Patel",
+  "confirmation_code": "B8Q3",
+  "expected_database_state": {
+    "customer_name": "Noor Patel",
+    "confirmation_code": "B8Q3"
+  },
+  "seed": 13,
+  "forced_stt_confusion": "P8Q3"
+}
