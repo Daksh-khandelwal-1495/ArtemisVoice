@@ -20,6 +20,7 @@ The repository now has the Phase 0 foundation:
   scenarios;
 - a SQLite trace store that restores a saved turn and its database snapshot;
 - a control-vs-oracle-STT counterfactual replay with repeated-trial statistics;
+- candidate-turn ranking from transcript and final-state evidence;
 - tests covering valid traces, the seeded failure, and a missing-artifact guard.
 
 See [the implementation plan](docs/IMPLEMENTATION_PLAN.md) for ordered milestones,

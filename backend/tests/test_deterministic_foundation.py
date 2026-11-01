@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from artemisVoice.Evals.agents.deterministic import DeterministicConfirmationAgent
+from artemisVoice.Evals.causal.locator import CandidateReason, CandidateTurnLocator
 from artemisVoice.Evals.causal.replay import CounterfactualReplayEngine, Verdict
 from artemisVoice.Evals.domain.models import Scenario
 from artemisVoice.Evals.storage.sqlite import SQLiteTraceStore
@@ -65,6 +66,23 @@ def test_stt_oracle_is_proven_against_a_control_arm() -> None:
     assert diagnosis.effect_size == 1.0
     assert diagnosis.fisher_exact_p_value == pytest.approx(0.0079365079)
     assert diagnosis.verdict is Verdict.PROVEN
+
+
+def test_locator_ranks_the_seeded_stt_failure_and_drives_diagnosis() -> None:
+    trace = DeterministicConfirmationAgent().run(load_scenario("stt_confusion_confirmation.json"))
+    candidates = CandidateTurnLocator().locate(trace)
+    diagnosis = CounterfactualReplayEngine().diagnose_first_stt_candidate(trace, trials=5)
+
+    assert candidates[0].turn_index == 0
+    assert candidates[0].score == 1.0
+    assert CandidateReason.ENTITY_MISMATCH in candidates[0].reasons
+    assert diagnosis.verdict is Verdict.PROVEN
+
+
+def test_locator_leaves_a_healthy_trace_unranked() -> None:
+    trace = DeterministicConfirmationAgent().run(load_scenario("healthy_confirmation.json"))
+
+    assert CandidateTurnLocator().locate(trace) == []
 
 
 def test_diagnosis_evidence_is_persisted_with_its_source_run(tmp_path: Path) -> None:

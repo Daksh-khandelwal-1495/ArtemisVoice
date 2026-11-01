@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from artemisVoice.Evals.causal.locator import CandidateTurnLocator
 from artemisVoice.Evals.tracing.contracts import (
     Layer,
     RunTrace,
@@ -122,6 +123,14 @@ class CounterfactualReplayEngine:
             fisher_exact_p_value=p_value,
             verdict=_verdict(control, effect_size, p_value),
         )
+
+    def diagnose_first_stt_candidate(self, source: RunTrace, *, trials: int = 5) -> Diagnosis:
+        """Find the highest-ranked trace mismatch, then test the STT hypothesis."""
+
+        candidates = CandidateTurnLocator().locate(source, limit=1)
+        if not candidates:
+            raise TraceContractError("no evidence-backed candidate turn was found")
+        return self.diagnose_stt(source, turn_index=candidates[0].turn_index, trials=trials)
 
     def _run_arm(
         self,
